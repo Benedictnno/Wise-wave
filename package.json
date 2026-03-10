@@ -1,0 +1,33 @@
+{
+  "name": "wisemove-connect",
+  "version": "1.0.0",
+  "description": "WiseMove Connect — Lead Introduction Platform Backend",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed:admin": "node src/seeds/adminSeed.js",
+    "seed:categories": "node src/seeds/categorySeed.js",
+    "seed:relationships": "node src/seeds/categoryRelationshipSeed.js",
+    "seed:all": "npm run seed:categories && npm run seed:relationships && npm run seed:admin"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.2.4",
+    "morgan": "^1.10.1",
+    "nodemailer": "^8.0.2",
+    "twilio": "^5.12.2"
+  }
+}
