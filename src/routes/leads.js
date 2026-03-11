@@ -8,6 +8,66 @@ const Introducer = require('../models/Introducer');
 const { findMatchingPartner } = require('../services/routingEngine');
 const { dispatchNotifications, notifyAdminUnassigned } = require('../services/notificationEngine');
 
+/**
+ * @openapi
+ * /api/leads:
+ *   post:
+ *     summary: Submit a new lead
+ *     description: Receives a new lead from consumer, SME, or introducer forms and triggers the routing engine.
+ *     tags: [Leads]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - phone
+ *               - postcode
+ *               - category
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Jane Smith"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "jane@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "07700123456"
+ *               postcode:
+ *                 type: string
+ *                 example: "SW1A 1AA"
+ *               category:
+ *                 type: string
+ *                 description: MongoDB ID of the category
+ *                 example: "65f1234567890abcdef12345"
+ *               description:
+ *                 type: string
+ *                 example: "Looking for a mortgage adviser"
+ *               introducer_id:
+ *                 type: string
+ *                 description: Optional MongoDB ID of the introducer
+ *                 example: "65f0987654321fedcba09876"
+ *     responses:
+ *       200:
+ *         description: Lead received successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Thanks — we'll match you shortly."
+ *       400:
+ *         description: Invalid input or inactive category
+ *       500:
+ *         description: Internal server error
+ */
 // POST /api/leads
 router.post(
     '/',
