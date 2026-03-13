@@ -11,6 +11,32 @@ const { calculateCommission, applySplit } = require('../../services/commissionSe
 // All routes require JWT auth
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/commissions:
+ *   get:
+ *     summary: List all commissions
+ *     description: Returns a list of all recorded commissions with filters for status and partner. Requires admin authentication.
+ *     tags: [Admin Commissions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [paid, unpaid, reversed] }
+ *       - in: query
+ *         name: partnerId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       200:
+ *         description: List of commissions
+ */
 // GET /admin/commissions
 router.get('/', async (req, res) => {
     try {
@@ -36,6 +62,26 @@ router.get('/', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/commissions/{id}:
+ *   get:
+ *     summary: Get commission details
+ *     description: Returns detailed information for a specific commission record.
+ *     tags: [Admin Commissions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Commission details
+ *       404:
+ *         description: Commission not found
+ */
 // GET /admin/commissions/:id
 router.get('/:id', async (req, res) => {
     try {
@@ -49,6 +95,34 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/commissions:
+ *   post:
+ *     summary: Report successful deal and record commission
+ *     description: Triggered when a partner reports a deal. Calculates and stores the commission based on category rules.
+ *     tags: [Admin Commissions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [leadId, partnerId, partnerFee]
+ *             properties:
+ *               leadId: { type: string }
+ *               partnerId: { type: string }
+ *               partnerFee: { type: number }
+ *               rdTaxYear: { type: integer, minimum: 1, maximum: 2 }
+ *               notes: { type: string }
+ *     responses:
+ *       201:
+ *         description: Commission recorded
+ *       404:
+ *         description: Lead not found
+ */
 // POST /admin/commissions — partner reports a successful deal
 router.post(
     '/',
@@ -92,6 +166,33 @@ router.post(
     }
 );
 
+/**
+ * @openapi
+ * /admin/commissions/{id}:
+ *   patch:
+ *     summary: Update commission status
+ *     description: Updates the payment status of a commission (paid, unpaid, or reversed).
+ *     tags: [Admin Commissions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [commissionStatus]
+ *             properties:
+ *               commissionStatus: { type: string, enum: [paid, unpaid, reversed] }
+ *     responses:
+ *       200:
+ *         description: Commission updated
+ */
 // PATCH /admin/commissions/:id — update status (paid/unpaid/reversed)
 router.patch(
     '/:id',

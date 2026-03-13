@@ -8,6 +8,23 @@ const Partner = require('../../models/Partner');
 // All routes require JWT auth
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/partners:
+ *   get:
+ *     summary: List all partners
+ *     description: Returns a complete list of partners sorted by priority. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of partners
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 // GET /admin/partners
 router.get('/', async (req, res) => {
     try {
@@ -21,6 +38,27 @@ router.get('/', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/partners/{id}:
+ *   get:
+ *     summary: Get partner by ID
+ *     description: Returns details of a single partner. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Partner details
+ *       404:
+ *         description: Partner not found
+ */
 // GET /admin/partners/:id
 router.get('/:id', async (req, res) => {
     try {
@@ -33,6 +71,48 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/partners:
+ *   post:
+ *     summary: Create a new partner
+ *     description: Creates a new service provider partner. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, phone, categories, postcodes, priority]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               whatsappNumber:
+ *                 type: string
+ *               categories:
+ *                 type: array
+ *                 items: { type: string }
+ *               postcodes:
+ *                 type: array
+ *                 items: { type: string }
+ *               priority:
+ *                 type: integer
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *     responses:
+ *       201:
+ *         description: Partner created
+ *       400:
+ *         description: Validation error
+ */
 // POST /admin/partners
 router.post(
     '/',
@@ -66,6 +146,32 @@ router.post(
     }
 );
 
+/**
+ * @openapi
+ * /admin/partners/{id}:
+ *   put:
+ *     summary: Update a partner
+ *     description: Updates an existing partner's details. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Partner updated
+ *       404:
+ *         description: Partner not found
+ */
 // PUT /admin/partners/:id
 router.put('/:id', async (req, res) => {
     try {
@@ -85,6 +191,36 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/partners/{id}/status:
+ *   patch:
+ *     summary: Update partner status
+ *     description: Activates or deactivates a partner. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *     responses:
+ *       200:
+ *         description: Status updated
+ */
 // PATCH /admin/partners/:id/status — activate or deactivate
 router.patch(
     '/:id/status',
@@ -106,6 +242,25 @@ router.patch(
     }
 );
 
+/**
+ * @openapi
+ * /admin/partners/{id}:
+ *   delete:
+ *     summary: Delete a partner
+ *     description: Permanently deletes a partner from the system. Requires admin authentication.
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Partner deleted
+ */
 // DELETE /admin/partners/:id
 router.delete('/:id', async (req, res) => {
     try {

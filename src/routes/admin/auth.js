@@ -6,6 +6,42 @@ const { body } = require('express-validator');
 const validate = require('../../middleware/validate');
 const Admin = require('../../models/Admin');
 
+/**
+ * @openapi
+ * /admin/auth/login:
+ *   post:
+ *     summary: Admin login
+ *     description: Authenticates an admin user and returns a JWT token.
+ *     tags: [Admin Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *       401:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Internal server error
+ */
 // POST /admin/auth/login
 router.post(
     '/login',

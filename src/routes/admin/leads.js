@@ -8,6 +8,32 @@ const Lead = require('../../models/Lead');
 // All routes require JWT auth
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/leads:
+ *   get:
+ *     summary: List all leads with filters
+ *     description: Returns a paginated list of leads. Supports filtering by status and category. Requires admin authentication.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [assigned, unassigned] }
+ *       - in: query
+ *         name: category
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       200:
+ *         description: Paginated leads list
+ */
 // GET /admin/leads — all leads
 router.get('/', async (req, res) => {
     try {
@@ -32,6 +58,19 @@ router.get('/', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/unassigned:
+ *   get:
+ *     summary: Get unassigned leads
+ *     description: Returns only leads that haven't been assigned to a partner yet.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of unassigned leads
+ */
 // GET /admin/leads/unassigned
 router.get('/unassigned', async (req, res) => {
     try {
@@ -45,6 +84,26 @@ router.get('/unassigned', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/{id}:
+ *   get:
+ *     summary: Get lead details
+ *     description: Returns full details of a lead, including populated category and partner info.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead details
+ *       404:
+ *         description: Lead not found
+ */
 // GET /admin/leads/:id
 router.get('/:id', async (req, res) => {
     try {
@@ -60,6 +119,33 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/{id}/assign:
+ *   patch:
+ *     summary: Manually assign lead to partner
+ *     description: Assigns a lead to a specific partner ID. Changes status to 'assigned'.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [partnerId]
+ *             properties:
+ *               partnerId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead assigned
+ */
 // PATCH /admin/leads/:id/assign — manually assign a partner
 router.patch(
     '/:id/assign',
@@ -81,6 +167,33 @@ router.patch(
     }
 );
 
+/**
+ * @openapi
+ * /admin/leads/{id}/notes:
+ *   patch:
+ *     summary: Update admin notes on lead
+ *     description: Adds or updates internal administration notes for a lead.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [adminNotes]
+ *             properties:
+ *               adminNotes: { type: string }
+ *     responses:
+ *       200:
+ *         description: Notes updated
+ */
 // PATCH /admin/leads/:id/notes — add admin notes
 router.patch(
     '/:id/notes',
@@ -102,6 +215,24 @@ router.patch(
     }
 );
 
+/**
+ * @openapi
+ * /admin/leads/{id}:
+ *   delete:
+ *     summary: Delete lead (GDPR)
+ *     description: Permanently deletes a lead for GDPR compliance.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead deleted
+ */
 // DELETE /admin/leads/:id — GDPR deletion
 router.delete('/:id', async (req, res) => {
     try {

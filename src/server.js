@@ -15,7 +15,7 @@ const adminLeadsRoute = require('./routes/admin/leads');
 const adminCommissionsRoute = require('./routes/admin/commissions');
 const adminReportsRoute = require('./routes/admin/reports');
 const adminCategoriesRoute = require('./routes/admin/categories');
-const { swaggerUi, swaggerSpec } = require('./config/swagger');
+const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
 
@@ -61,7 +61,7 @@ app.use('/admin/reports', adminLimiter, adminReportsRoute);
 app.use('/admin/categories', adminLimiter, adminCategoriesRoute);
 
 // ─── API Documentation ────────────────────────────────────────────────────────
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {

@@ -9,6 +9,19 @@ const CategoryRelationship = require('../../models/CategoryRelationship');
 // All routes require JWT auth
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/categories:
+ *   get:
+ *     summary: List all service categories (Admin)
+ *     description: Returns a list of all categories including inactive ones. Requires admin authentication.
+ *     tags: [Admin Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of categories
+ */
 // GET /admin/categories
 router.get('/', async (req, res) => {
     try {
@@ -20,6 +33,34 @@ router.get('/', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/categories:
+ *   post:
+ *     summary: Create a new category
+ *     description: Creates a new lead service category. Requires admin authentication.
+ *     tags: [Admin Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, commissionType, commissionValue]
+ *             properties:
+ *               name: { type: string }
+ *               commissionType: { type: string, enum: [percentage, flat, tiered] }
+ *               commissionValue: { type: number }
+ *               introducerSplit: { type: number, default: 30 }
+ *               description: { type: string }
+ *               notes: { type: string }
+ *               isRegulated: { type: boolean, default: false }
+ *     responses:
+ *       201:
+ *         description: Category created
+ */
 // POST /admin/categories
 router.post(
     '/',
@@ -49,6 +90,29 @@ router.post(
     }
 );
 
+/**
+ * @openapi
+ * /admin/categories/{id}:
+ *   put:
+ *     summary: Update a category
+ *     description: Updates an existing category's configuration. Requires admin authentication.
+ *     tags: [Admin Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Category updated
+ */
 // PUT /admin/categories/:id
 router.put('/:id', async (req, res) => {
     try {
@@ -64,6 +128,24 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/categories/{id}/relationships:
+ *   get:
+ *     summary: Get category relationships
+ *     description: Returns the static related category suggestions for a given category.
+ *     tags: [Admin Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Category relationship data
+ */
 // GET /admin/categories/:id/relationships
 router.get('/:id/relationships', async (req, res) => {
     try {
@@ -77,6 +159,35 @@ router.get('/:id/relationships', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/categories/{id}/relationships:
+ *   put:
+ *     summary: Update category relationships
+ *     description: Sets the cross-category suggestion rules for a category.
+ *     tags: [Admin Categories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [relatedCategories]
+ *             properties:
+ *               relatedCategories:
+ *                 type: array
+ *                 items: { type: string }
+ *     responses:
+ *       200:
+ *         description: Relationships updated
+ */
 // PUT /admin/categories/:id/relationships — update cross-category suggestions
 router.put(
     '/:id/relationships',

@@ -30,4 +30,9 @@ const options = {
 
 const swaggerSpec = swaggerJsdoc(options);
 
-module.exports = { swaggerUi, swaggerSpec };
+const uiOptions = {
+    customSiteTitle: 'WiseMove Connect API Documentation',
+    customfavIcon: '/favicon.ico', // Placeholder if needed
+};
+
+module.exports = { swaggerUi, swaggerSpec, uiOptions };

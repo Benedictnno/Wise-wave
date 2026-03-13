@@ -19,6 +19,19 @@ const sendCSV = async (res, data, filename) => {
     return res.status(200).send(csv);
 };
 
+/**
+ * @openapi
+ * /admin/reports/partners:
+ *   get:
+ *     summary: Get partner performance report
+ *     description: Returns aggregated data for partners, including total leads, conversion rates, and revenue generated. Requires admin authentication.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Partner performance data
+ */
 // GET /admin/reports/partners
 router.get('/partners', async (req, res) => {
     try {
@@ -100,6 +113,19 @@ router.get('/partners', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/reports/categories:
+ *   get:
+ *     summary: Get category performance report
+ *     description: Returns aggregated data for each category, showing lead distribution and revenue. Requires admin authentication.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Category performance data
+ */
 // GET /admin/reports/categories
 router.get('/categories', async (req, res) => {
     try {
@@ -162,6 +188,19 @@ router.get('/categories', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/reports/postcodes:
+ *   get:
+ *     summary: Get postcode distribution report
+ *     description: Returns aggregated lead counts and assignment status per postcode. Requires admin authentication.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Postcode distribution data
+ */
 // GET /admin/reports/postcodes
 router.get('/postcodes', async (req, res) => {
     try {
@@ -200,6 +239,29 @@ router.get('/postcodes', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/reports/export:
+ *   get:
+ *     summary: Export reports to CSV
+ *     description: Streams a CSV file containing the requested report data. Requires admin authentication.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema: { type: string, enum: [partners, categories, postcodes] }
+ *     responses:
+ *       200:
+ *         description: CSV file stream
+ *         content:
+ *           text/csv:
+ *             schema: { type: string, format: binary }
+ *       400:
+ *         description: Invalid report type
+ */
 // GET /admin/reports/export?type=partners|categories|postcodes
 router.get('/export', async (req, res) => {
     try {
