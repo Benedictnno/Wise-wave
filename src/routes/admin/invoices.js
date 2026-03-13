@@ -1,0 +1,153 @@
+const express = require('express');
+const router = express.Router();
+const path = require('path');
+const { body } = require('express-validator');
+const validate = require('../../middleware/validate');
+const authMiddleware = require('../../middleware/auth');
+const Invoice = require('../../models/Invoice');
+const fs = require('fs');
+
+// All routes require JWT auth
+router.use(authMiddleware);
+
+/**
+ * @openapi
+ * /admin/invoices:
+ *   get:
+ *     summary: List all invoices
+ *     description: Returns a paginated list of all invoices. Requires admin authentication.
+ *     tags: [Admin Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [paid, unpaid, reversed] }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       200:
+ *         description: Paginated invoices list
+ */
+router.get('/', async (req, res) => {
+    try {
+        const { status, page = 1, limit = 50 } = req.query;
+        const filter = {};
+        if (status) filter.status = status;
+
+        const invoices = await Invoice.find(filter)
+            .populate('leadId', 'name postcode')
+            .populate('partnerId', 'name email')
+            .sort({ issuedAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+
+        const total = await Invoice.countDocuments(filter);
+        return res.status(200).json({ invoices, total, page: Number(page), limit: Number(limit) });
+    } catch (err) {
+        console.error('[GET /admin/invoices]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * @openapi
+ * /admin/invoices/{id}/download:
+ *   get:
+ *     summary: Download invoice PDF
+ *     description: Serves the PDF file for a specific invoice.
+ *     tags: [Admin Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: PDF file stream
+ *       404:
+ *         description: Invoice or file not found
+ */
+router.get('/:id/download', async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+        const filePath = path.join(__dirname, '../../../', invoice.pdfPath);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'PDF file not found on server' });
+        }
+
+        res.download(filePath, `${invoice.invoiceNumber}.pdf`);
+    } catch (err) {
+        console.error('[GET /admin/invoices/:id/download]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * @openapi
+ * /admin/invoices/{id}/status:
+ *   patch:
+ *     summary: Update invoice status
+ *     description: Marks an invoice as paid, unpaid, or reversed.
+ *     tags: [Admin Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status: { type: string, enum: [paid, unpaid, reversed] }
+ *     responses:
+ *       200:
+ *         description: Invoice status updated
+ */
+router.patch(
+    '/:id/status',
+    [body('status').isIn(['paid', 'unpaid', 'reversed']).withMessage('Invalid status')],
+    validate,
+    async (req, res) => {
+        try {
+            const updateData = { status: req.body.status };
+            if (req.body.status === 'paid') updateData.paidAt = new Date();
+
+            const invoice = await Invoice.findByIdAndUpdate(
+                req.params.id,
+                updateData,
+                { new: true }
+            );
+
+            if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+            // Sync with related commission
+            const Commission = require('../../models/Commission');
+            await Commission.findByIdAndUpdate(invoice.commissionId, { 
+                commissionStatus: req.body.status,
+                updatedAt: new Date()
+            });
+
+            return res.status(200).json({ message: 'Invoice status updated', invoice });
+        } catch (err) {
+            console.error('[PATCH /admin/invoices/:id/status]', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
+module.exports = router;

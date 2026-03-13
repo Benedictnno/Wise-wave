@@ -4,6 +4,9 @@ const DeliveryLog = require('../models/DeliveryLog');
 
 // ─── Message Template ────────────────────────────────────────────────────────
 const buildMessage = (lead, category) => {
+    const backendUrl = process.env.BACKEND_URL || 'https://api.wisemove.connect';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://wisemove.connect';
+    
     return (
         `New WiseMove Connect introduction:\n\n` +
         `Category: ${category.name}\n\n` +
@@ -12,7 +15,10 @@ const buildMessage = (lead, category) => {
         `Customer Phone: ${lead.phone}\n\n` +
         `Customer Email: ${lead.email}\n\n` +
         `Details: ${lead.description || 'No additional details provided.'}\n\n` +
-        `Please contact the customer directly. Reply to this message if you need support.`
+        `Please contact the customer directly. Reply to this message if you need support.\n\n` +
+        `Update Lead Outcome:\n` +
+        `Please use the secure link below to update the outcome of this introduction (Won/Lost) so we can track the progress.\n` +
+        `${frontendUrl}/outcome/${lead.outcomeToken}`
     );
 };
 

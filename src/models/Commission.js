@@ -20,9 +20,8 @@ const commissionSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now },
 });
 
-commissionSchema.pre('save', function (next) {
+commissionSchema.pre('save', function () {
     this.updatedAt = Date.now();
-    next();
 });
 
 module.exports = mongoose.model('Commission', commissionSchema);

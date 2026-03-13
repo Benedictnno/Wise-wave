@@ -113,11 +113,14 @@ router.post(
             });
 
             // Run routing engine
+            const { v4: uuidv4 } = require('uuid');
             const partner = await findMatchingPartner(categoryDoc._id, postcode);
 
             if (partner) {
                 lead.assignedPartnerId = partner._id;
                 lead.status = 'assigned';
+                lead.assignedAt = new Date();
+                lead.outcomeToken = uuidv4();
                 await lead.save();
 
                 // Dispatch notifications (non-blocking — don't fail the response if notifications fail)

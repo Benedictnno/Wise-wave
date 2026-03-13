@@ -14,7 +14,7 @@ const partnerSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Index for fast routing queries
-partnerSchema.index({ categories: 1, postcodes: 1, status: 1, priority: 1 });
+// Index for fast routing queries (MongoDB allows at most one array field per compound index)
+partnerSchema.index({ categories: 1, status: 1, priority: 1 });
 
 module.exports = mongoose.model('Partner', partnerSchema);
