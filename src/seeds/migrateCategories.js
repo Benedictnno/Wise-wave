@@ -1,6 +1,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Category = require('../models/Category');
+const Partner = require('../models/Partner');
 const CommissionRule = require('../models/CommissionRule');
 
 const newCategories = [
@@ -39,47 +40,109 @@ const newCategories = [
     { name: 'Personal Coaching', pillarId: 'Personal Services', commissionType: 'flat', commissionValue: 75, isRegulatedAdjacent: false, complianceText: '' },
 ];
 
+const categoryMapping = {
+    'Estate Agents': 'Estate Agency & Lettings',
+    'Lettings': 'Estate Agency & Lettings',
+    'Conveyancing': 'Conveyancing Services',
+    'Surveyors': 'Property Surveys',
+    'EPC': 'Trades & Home Services',
+    'Property Management': 'Property Management (Residential)',
+    'New Build Sales': 'Estate Agency & Lettings',
+    'Mortgage Broker': 'Mortgage Introductions',
+    'Independent Financial Adviser': 'IFA / Financial Planning Introductions',
+    'Finance': 'Commercial Finance Introductions',
+    'Bridging Finance': 'Commercial Finance Introductions',
+    'Asset Finance': 'Commercial Finance Introductions',
+    'Commercial Mortgage': 'Commercial Finance Introductions',
+    'Insurance': 'Business Insurance Introductions',
+    'Life Insurance': 'Business Insurance Introductions',
+    'Business Insurance': 'Business Insurance Introductions',
+    'R&D Tax Credits': 'R&D Tax Credits',
+    'Accountancy': 'Accountancy & Tax',
+    'Legal Services': 'HR & Employment Law', // Approx mapping
+    'Business Energy': 'Trades & Home Services', // Approx mapping
+    'Telecoms': 'IT Support & Cybersecurity', // Approx mapping
+    'HR & Employment Law': 'HR & Employment Law',
+    'Marketing': 'Marketing & Branding',
+    'Web Design': 'Web Design & Digital Services',
+    'Trades': 'Trades & Home Services',
+    'Plumbing': 'Trades & Home Services',
+    'Electrical': 'Trades & Home Services',
+    'Roofing': 'Trades & Home Services',
+    'Cleaning': 'Cleaning Services',
+    'Landscaping': 'Trades & Home Services'
+};
 
-const seed = async () => {
+const migrate = async () => {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('[Seed] Connected to MongoDB');
+    console.log('[Migration] Connected to MongoDB');
 
-    let createdCategories = 0;
-    let skippedCategories = 0;
-    let createdRules = 0;
-    
-    // Purge old categories completely to enforce strict new categories list
-    await Category.deleteMany({});
-    console.log('[Seed] Purged existing categories enforce new spec');
+    const newCategoryMap = new Map();
 
-    await CommissionRule.deleteMany({});
-    console.log('[Seed] Purged existing commission rules');
-
+    // 1. Create or ensure the new categories exist
+    console.log('[Migration] Creating new categories and commission rules...');
     for (const catData of newCategories) {
-        const cat = await Category.create(catData);
-        createdCategories++;
-        
+        let cat = await Category.findOne({ name: catData.name });
+        if (!cat) {
+            cat = await Category.create(catData);
+        } else {
+            Object.assign(cat, catData);
+            await cat.save();
+        }
+        newCategoryMap.set(cat.name, cat._id);
+
+        // Seed CommissionRule for this category
+        let rule = await CommissionRule.findOne({ categoryId: cat._id });
         const ruleType = cat.commissionType === 'tiered' ? 'split' : cat.commissionType;
-        
-        await CommissionRule.create({
-            categoryId: cat._id,
-            type: ruleType,
-            fixedAmount: cat.commissionType === 'flat' ? cat.commissionValue : 0,
-            percentage: cat.commissionType === 'percentage' ? cat.commissionValue : 0,
-            wisemoveShare: 70,    // Default 70/30 split logic
-            introducerShare: 30,  
-            triggerType: 'won'
-        });
-        createdRules++;
+        if (!rule) {
+            await CommissionRule.create({
+                categoryId: cat._id,
+                type: ruleType,
+                fixedAmount: cat.commissionType === 'flat' ? cat.commissionValue : 0,
+                percentage: cat.commissionType === 'percentage' ? cat.commissionValue : 0,
+                wisemoveShare: 70,    // Default 70/30 split logic
+                introducerShare: 30,  // Or 100/0 if no introducer
+                triggerType: 'won'
+            });
+        }
     }
 
-    console.log(`[Seed] Categories — ${createdCategories} created.`);
-    console.log(`[Seed] Commission Rules — ${createdRules} created.`);
-    
+    // 2. Map existing partners to new categories
+    console.log('[Migration] Migrating old partner categories...');
+    const partners = await Partner.find().populate('categories');
+    for (const partner of partners) {
+        let updatedCategories = new Set();
+        let changed = false;
+
+        for (const oldCat of partner.categories) {
+            const newName = categoryMapping[oldCat.name];
+            if (newName) {
+                const newId = newCategoryMap.get(newName);
+                if (newId) {
+                    updatedCategories.add(newId.toString());
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            partner.categories = Array.from(updatedCategories);
+            await partner.save();
+            console.log(`[Migration] Updated partner: ${partner._id} (${partner.companyName || 'Unknown'})`);
+        }
+    }
+
+    // 3. Delete old categories that aren't in the new 28 list
+    console.log('[Migration] Removing old unsupported categories...');
+    const validNames = newCategories.map(c => c.name);
+    const result = await Category.deleteMany({ name: { $nin: validNames } });
+    console.log(`[Migration] Deleted ${result.deletedCount} old categories.`);
+
+    console.log('[Migration] Complete!');
     await mongoose.disconnect();
 };
 
-seed().catch((err) => {
-    console.error('[Seed] Error:', err.message);
+migrate().catch((err) => {
+    console.error('[Migration] Error:', err.message);
     process.exit(1);
 });

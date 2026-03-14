@@ -23,6 +23,10 @@ const app = express();
 // ─── Connect Database ─────────────────────────────────────────────────────────
 connectDB();
 
+// ─── Cron Jobs ────────────────────────────────────────────────────────
+const { initCronJobs } = require('./services/reportService');
+initCronJobs();
+
 // ─── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({
@@ -51,7 +55,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 app.use('/api/leads', leadLimiter, leadsRoute);
-app.use('/api/outcomes', require('./routes/outcomes'));
+app.use('/api/partner-response', require('./routes/partnerResponse'));
 app.use('/api/categories', categoriesRoute);
 
 // ─── Admin Routes (all JWT-protected within their routers) ───────────────────

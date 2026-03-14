@@ -3,15 +3,15 @@ const router = express.Router();
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
 const Lead = require('../models/Lead');
-const { processOutcome } = require('../services/outcomeService');
+const { processPartnerResponse } = require('../services/partnerResponseService');
 
 /**
  * @openapi
- * /api/outcomes/{token}:
+ * /api/partner-response/{token}:
  *   get:
  *     summary: Get lead details for outcome reporting
  *     description: Returns limited lead details for a partner to report the outcome using their secure token.
- *     tags: [Outcomes]
+ *     tags: [PartnerResponse]
  *     parameters:
  *       - in: path
  *         name: token
@@ -26,25 +26,25 @@ const { processOutcome } = require('../services/outcomeService');
 router.get('/:token', async (req, res) => {
     try {
         const lead = await Lead.findOne({ outcomeToken: req.params.token })
-            .populate('category', 'name commissionType commissionValue')
+            .populate('category', 'name')
             .select('name postcode description createdAt outcome partnerFee');
         
         if (!lead) return res.status(404).json({ error: 'Invalid or expired outcome link' });
         
         return res.status(200).json(lead);
     } catch (err) {
-        console.error('[GET /api/outcomes/:token]', err.message);
+        console.error('[GET /api/partner-response/:token]', err.message);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 /**
  * @openapi
- * /api/outcomes/{token}:
+ * /api/partner-response/{token}:
  *   post:
  *     summary: Submit lead outcome
  *     description: Partner marks the lead as won, lost, or not suitable. If won, triggers commission.
- *     tags: [Outcomes]
+ *     tags: [PartnerResponse]
  *     parameters:
  *       - in: path
  *         name: token
@@ -63,10 +63,7 @@ router.get('/:token', async (req, res) => {
  *                 enum: [won, lost, not_suitable]
  *               partnerFee:
  *                 type: number
- *                 description: Required if outcome is 'won' and category is percentage/tiered
- *               rdTaxYear:
- *                 type: integer
- *                 description: Only used if category is tiered (R&D Tax)
+ *                 description: Required if outcome is 'won' and commission rule requires fee
  *               notes:
  *                 type: string
  *     responses:
@@ -78,23 +75,22 @@ router.post(
     [
         body('outcome').isIn(['won', 'lost', 'not_suitable']).withMessage('Invalid outcome status'),
         body('partnerFee').optional().isFloat({ min: 0 }).withMessage('Partner fee must be a valid number'),
-        body('rdTaxYear').optional().isInt({ min: 1 }),
         body('notes').optional().trim(),
     ],
     validate,
     async (req, res) => {
         try {
-            const { outcome, partnerFee, rdTaxYear, notes } = req.body;
+            const { outcome, partnerFee, notes } = req.body;
             const lead = await Lead.findOne({ outcomeToken: req.params.token }).populate('category');
             
             if (!lead) return res.status(404).json({ error: 'Invalid or expired outcome link' });
             if (lead.outcome) return res.status(400).json({ error: 'Outcome has already been reported for this lead' });
 
-            const result = await processOutcome(lead, outcome, partnerFee, rdTaxYear, notes);
+            const result = await processPartnerResponse(lead, outcome, partnerFee, notes);
             
             return res.status(200).json({ message: 'Outcome recorded successfully', data: result });
         } catch (err) {
-            console.error('[POST /api/outcomes/:token]', err.message);
+            console.error('[POST /api/partner-response/:token]', err.message);
             return res.status(400).json({ error: err.message });
         }
     }

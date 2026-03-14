@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
-const DeliveryLog = require('../models/DeliveryLog');
+const Introduction = require('../models/Introduction');
 
 // ─── Message Template ────────────────────────────────────────────────────────
 const buildMessage = (lead, category) => {
@@ -23,12 +23,11 @@ const buildMessage = (lead, category) => {
 };
 
 // ─── Email ────────────────────────────────────────────────────────────────────
-const sendEmail = async (partner, lead, category, log) => {
+const sendEmail = async (partner, lead, category) => {
     try {
         if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
             console.warn('[Email] SMTP credentials not configured — skipping email send');
-            log.emailError = 'SMTP credentials not configured';
-            return;
+            return false;
         }
 
         const transporter = nodemailer.createTransport({
@@ -45,27 +44,25 @@ const sendEmail = async (partner, lead, category, log) => {
             text: buildMessage(lead, category),
         });
 
-        log.emailSent = true;
-        log.emailTimestamp = new Date();
         console.log(`[Email] Sent to ${partner.email}`);
+        return true;
     } catch (err) {
-        log.emailError = err.message;
         console.error(`[Email] Failed for lead ${lead._id}:`, err.message);
+        return false;
     }
 };
 
 // ─── SMS ──────────────────────────────────────────────────────────────────────
-const sendSMS = async (partner, lead, category, log) => {
+const sendSMS = async (partner, lead, category) => {
     try {
         if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
             console.warn('[SMS] Twilio credentials not configured — skipping SMS send');
-            log.smsError = 'Twilio credentials not configured';
-            return;
+            return false;
         }
 
         if (!partner.phone) {
-            log.smsError = 'Partner has no phone number';
-            return;
+            console.warn(`[SMS] Partner has no phone number`);
+            return false;
         }
 
         const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -75,28 +72,26 @@ const sendSMS = async (partner, lead, category, log) => {
             to: partner.phone,
         });
 
-        log.smsSent = true;
-        log.smsTimestamp = new Date();
         console.log(`[SMS] Sent to ${partner.phone}`);
+        return true;
     } catch (err) {
-        log.smsError = err.message;
         console.error(`[SMS] Failed for lead ${lead._id}:`, err.message);
+        return false;
     }
 };
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
-const sendWhatsApp = async (partner, lead, category, log) => {
+const sendWhatsApp = async (partner, lead, category) => {
     try {
         if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
             console.warn('[WhatsApp] Twilio credentials not configured — skipping WhatsApp send');
-            log.whatsappError = 'Twilio credentials not configured';
-            return;
+            return false;
         }
 
         const to = partner.whatsappNumber || partner.phone;
         if (!to) {
-            log.whatsappError = 'Partner has no WhatsApp/phone number';
-            return;
+            console.warn(`[WhatsApp] Partner has no phone number or whatsapp number`);
+            return false;
         }
 
         const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -106,12 +101,11 @@ const sendWhatsApp = async (partner, lead, category, log) => {
             to: `whatsapp:${to}`,
         });
 
-        log.whatsappSent = true;
-        log.whatsappTimestamp = new Date();
         console.log(`[WhatsApp] Sent to ${to}`);
+        return true;
     } catch (err) {
-        log.whatsappError = err.message;
         console.error(`[WhatsApp] Failed for lead ${lead._id}:`, err.message);
+        return false;
     }
 };
 
@@ -141,22 +135,47 @@ const notifyAdminUnassigned = async (lead) => {
 
 // ─── Main Dispatch ────────────────────────────────────────────────────────────
 /**
- * Send lead introduction to partner via all three channels simultaneously.
- * Creates a DeliveryLog with per-channel results.
+ * Send lead introduction to partner preferring their preferredContactMethod.
+ * Implements fallback to email if SMS/WhatsApp fails.
+ * Log to Introduction model.
  */
 const dispatchNotifications = async (lead, partner, category) => {
-    const log = new DeliveryLog({ leadId: lead._id });
+    const method = partner.preferredContactMethod || 'email';
+    let status = 'sent';
+    let fallbackUsed = false;
+    let actualMethod = method;
 
-    // All three channels fire simultaneously
-    await Promise.all([
-        sendEmail(partner, lead, category, log),
-        sendSMS(partner, lead, category, log),
-        sendWhatsApp(partner, lead, category, log),
-    ]);
+    if (method === 'whatsapp') {
+        const success = await sendWhatsApp(partner, lead, category);
+        if (!success) {
+            fallbackUsed = true;
+            actualMethod = 'email';
+            const emailSuccess = await sendEmail(partner, lead, category);
+            status = emailSuccess ? 'sent' : 'failed';
+        }
+    } else if (method === 'sms') {
+        const success = await sendSMS(partner, lead, category);
+        if (!success) {
+            fallbackUsed = true;
+            actualMethod = 'email';
+            const emailSuccess = await sendEmail(partner, lead, category);
+            status = emailSuccess ? 'sent' : 'failed';
+        }
+    } else {
+        const success = await sendEmail(partner, lead, category);
+        status = success ? 'sent' : 'failed';
+    }
 
-    await log.save();
-    console.log(`[Notifications] Delivery log saved for lead ${lead._id}`);
-    return log;
+    const intro = await Introduction.create({
+        leadId: lead._id,
+        partnerId: partner._id,
+        deliveryMethod: actualMethod,
+        deliveryStatus: status,
+        fallbackUsed
+    });
+
+    console.log(`[Notifications] Introduction logged for lead ${lead._id} using ${actualMethod}`);
+    return intro;
 };
 
 module.exports = { dispatchNotifications, notifyAdminUnassigned };
