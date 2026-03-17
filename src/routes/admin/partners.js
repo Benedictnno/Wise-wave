@@ -117,7 +117,8 @@ router.get('/:id', async (req, res) => {
 router.post(
     '/',
     [
-        body('name').trim().notEmpty().withMessage('Name is required'),
+        body('name').trim().notEmpty().withMessage('Company name is required'),
+        body('contactName').trim().notEmpty().withMessage('Contact name is required'),
         body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
         body('phone').trim().notEmpty().withMessage('Phone is required'),
         body('categories').isArray({ min: 1 }).withMessage('At least one category is required'),
@@ -127,9 +128,10 @@ router.post(
     validate,
     async (req, res) => {
         try {
-            const { name, email, phone, whatsappNumber, categories, postcodes, priority, status } = req.body;
+            const { name, contactName, email, phone, whatsappNumber, categories, postcodes, priority, status } = req.body;
             const partner = await Partner.create({
-                name,
+                companyName: name, // UI uses 'name' for company name
+                contactName: contactName || name, // Fallback to name if not provided (though validated)
                 email,
                 phone,
                 whatsappNumber: whatsappNumber || '',
@@ -137,6 +139,8 @@ router.post(
                 postcodes: postcodes.map((p) => p.toUpperCase().trim()),
                 priority,
                 status: status || 'active',
+                agreementAccepted: true, // Admin-initiated creation implies agreement
+                agreementTimestamp: new Date(),
             });
             return res.status(201).json(partner);
         } catch (err) {

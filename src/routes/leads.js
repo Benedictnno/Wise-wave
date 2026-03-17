@@ -78,12 +78,13 @@ router.post(
         body('postcode').trim().notEmpty().withMessage('Postcode is required'),
         body('category').isMongoId().withMessage('Valid category ID is required'),
         body('description').optional().trim(),
-        body('introducer_id').optional().isMongoId().withMessage('Invalid introducer ID'),
+        body('consentAccepted').isBoolean().withMessage('Consent must be accepted'),
+        body('formSource').isIn(['category_page', 'request_service']).withMessage('Invalid form source'),
     ],
     validate,
     async (req, res) => {
         try {
-            const { name, email, phone, postcode, category, description, introducer_id } = req.body;
+            const { name, email, phone, postcode, category, description, introducer_id, consentAccepted, formSource } = req.body;
 
             // Validate category exists
             const categoryDoc = await Category.findById(category);
@@ -110,6 +111,9 @@ router.post(
                 description: description || '',
                 introducerId: validIntroducerId,
                 status: 'unassigned',
+                consentAccepted: consentAccepted === true || consentAccepted === 'true',
+                consentTimestamp: new Date(),
+                formSource: formSource || 'request_service',
             });
 
             // Run routing engine
