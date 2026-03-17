@@ -79,12 +79,14 @@ router.get('/:id/download', async (req, res) => {
         const invoice = await Invoice.findById(req.params.id);
         if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
 
-        const filePath = path.join(__dirname, '../../../', invoice.pdfPath);
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'PDF file not found on server' });
+        // Since pdfPath now stores the full Cloudinary URL, we can redirect to it
+        // Note: For private files, we would generate a signed URL here, 
+        // but for current requirement, a simple redirect to the secure_url is sufficient.
+        if (!invoice.pdfPath || !invoice.pdfPath.startsWith('http')) {
+            return res.status(404).json({ error: 'Invoice PDF path is invalid or local (migrate legacy files manually)' });
         }
 
-        res.download(filePath, `${invoice.invoiceNumber}.pdf`);
+        return res.redirect(invoice.pdfPath);
     } catch (err) {
         console.error('[GET /admin/invoices/:id/download]', err.message);
         return res.status(500).json({ error: 'Internal server error' });

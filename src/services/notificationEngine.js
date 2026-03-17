@@ -1,6 +1,44 @@
-const nodemailer = require('nodemailer');
-const twilio = require('twilio');
 const Introduction = require('../models/Introduction');
+
+// ─── Token Cache ─────────────────────────────────────────────────────────────
+let sendPulseToken = null;
+let tokenExpiry = 0;
+
+const getSendPulseToken = async () => {
+    try {
+        if (sendPulseToken && Date.now() < tokenExpiry) {
+            return sendPulseToken;
+        }
+
+        const clientId = process.env.SENDPULSE_CLIENT_ID;
+        const clientSecret = process.env.SENDPULSE_CLIENT_SECRET;
+
+        if (!clientId || !clientSecret) {
+            console.warn('[SendPulse] Credentials not configured');
+            return null;
+        }
+
+        const response = await fetch('https://api.sendpulse.com/oauth/access_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                grant_type: 'client_credentials',
+                client_id: clientId,
+                client_secret: clientSecret,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error_description || 'Failed to get token');
+
+        sendPulseToken = data.access_token;
+        tokenExpiry = Date.now() + (data.expires_in - 60) * 1000; // Buffer of 60s
+        return sendPulseToken;
+    } catch (err) {
+        console.error('[SendPulse] Token retrieval failed:', err.message);
+        return null;
+    }
+};
 
 // ─── Message Template ────────────────────────────────────────────────────────
 const buildMessage = (lead, category) => {
@@ -22,29 +60,35 @@ const buildMessage = (lead, category) => {
     );
 };
 
-// ─── Email ────────────────────────────────────────────────────────────────────
 const sendEmail = async (partner, lead, category) => {
     try {
-        if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-            console.warn('[Email] SMTP credentials not configured — skipping email send');
+        const apiKey = process.env.RESEND_API_KEY;
+        if (!apiKey) {
+            console.warn('[Email] Resend API key not configured — skipping email send');
             return false;
         }
 
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: Number(process.env.SMTP_PORT) || 587,
-            secure: false,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                to: partner.email,
+                subject: 'New WiseMove Connect Introduction',
+                text: buildMessage(lead, category),
+            }),
         });
 
-        await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
-            to: partner.email,
-            subject: 'New WiseMove Connect Introduction',
-            text: buildMessage(lead, category),
-        });
+        const data = await response.json();
 
-        console.log(`[Email] Sent to ${partner.email}`);
+        if (!response.ok) {
+            throw new Error(data.message || `Resend error: ${response.status}`);
+        }
+
+        console.log(`[Email] Sent to ${partner.email} via Resend. ID: ${data.id}`);
         return true;
     } catch (err) {
         console.error(`[Email] Failed for lead ${lead._id}:`, err.message);
@@ -52,27 +96,34 @@ const sendEmail = async (partner, lead, category) => {
     }
 };
 
-// ─── SMS ──────────────────────────────────────────────────────────────────────
+// ─── SMS (SendPulse) ──────────────────────────────────────────────────────────
 const sendSMS = async (partner, lead, category) => {
     try {
-        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-            console.warn('[SMS] Twilio credentials not configured — skipping SMS send');
-            return false;
-        }
-
         if (!partner.phone) {
             console.warn(`[SMS] Partner has no phone number`);
             return false;
         }
 
-        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        await client.messages.create({
-            body: buildMessage(lead, category),
-            from: process.env.TWILIO_FROM_NUMBER,
-            to: partner.phone,
+        const token = await getSendPulseToken();
+        if (!token) return false;
+
+        const response = await fetch('https://api.sendpulse.com/sms/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                sender: process.env.SENDPULSE_SMS_SENDER || 'WiseMove',
+                phones: [partner.phone],
+                body: buildMessage(lead, category).substring(0, 1600), // SMS length limits usually apply
+            }),
         });
 
-        console.log(`[SMS] Sent to ${partner.phone}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'SMS send failed');
+
+        console.log(`[SMS] Sent to ${partner.phone} via SendPulse`);
         return true;
     } catch (err) {
         console.error(`[SMS] Failed for lead ${lead._id}:`, err.message);
@@ -80,28 +131,47 @@ const sendSMS = async (partner, lead, category) => {
     }
 };
 
-// ─── WhatsApp ─────────────────────────────────────────────────────────────────
+// ─── WhatsApp (SendPulse Chatbot) ─────────────────────────────────────────────
 const sendWhatsApp = async (partner, lead, category) => {
     try {
-        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-            console.warn('[WhatsApp] Twilio credentials not configured — skipping WhatsApp send');
-            return false;
-        }
-
         const to = partner.whatsappNumber || partner.phone;
         if (!to) {
             console.warn(`[WhatsApp] Partner has no phone number or whatsapp number`);
             return false;
         }
 
-        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        await client.messages.create({
-            body: buildMessage(lead, category),
-            from: process.env.TWILIO_WHATSAPP_FROM,
-            to: `whatsapp:${to}`,
+        const botId = process.env.SENDPULSE_WHATSAPP_BOT_ID;
+        if (!botId) {
+            console.warn('[WhatsApp] Bot ID not configured — skipping');
+            return false;
+        }
+
+        const token = await getSendPulseToken();
+        if (!token) return false;
+
+        // Note: SendPulse WhatsApp often requires templates for first message.
+        // For simplicity, we use the sendByPhone endpoint which works if the user has messaged before,
+        // or if the bot is configured to allow direct messages.
+        const response = await fetch(`https://api.sendpulse.com/chatbots/whatsapp/contacts/sendByPhone`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                bot_id: botId,
+                phone: to,
+                message: {
+                    type: 'text',
+                    text: { body: buildMessage(lead, category) }
+                }
+            }),
         });
 
-        console.log(`[WhatsApp] Sent to ${to}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'WhatsApp send failed');
+
+        console.log(`[WhatsApp] Sent to ${to} via SendPulse`);
         return true;
     } catch (err) {
         console.error(`[WhatsApp] Failed for lead ${lead._id}:`, err.message);
@@ -109,25 +179,27 @@ const sendWhatsApp = async (partner, lead, category) => {
     }
 };
 
-// ─── Admin Alert (unassigned leads) ──────────────────────────────────────────
+// ─── Admin Alert (Resend) ────────────────────────────────────────────────────
 const notifyAdminUnassigned = async (lead) => {
     try {
-        if (!process.env.SMTP_HOST || !process.env.ADMIN_EMAIL) return;
+        const apiKey = process.env.RESEND_API_KEY;
+        const adminEmail = process.env.ADMIN_EMAIL;
+        if (!apiKey || !adminEmail) return;
 
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: Number(process.env.SMTP_PORT) || 587,
-            secure: false,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                to: adminEmail,
+                subject: '[WiseMove] Unassigned Lead Alert',
+                text: `A new lead could not be matched to a partner.\n\nLead ID: ${lead._id}\nName: ${lead.name}\nPostcode: ${lead.postcode}\nCategory: ${lead.category}\n\nPlease log in to the admin dashboard to assign manually.`,
+            }),
         });
-
-        await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
-            to: process.env.ADMIN_EMAIL,
-            subject: '[WiseMove] Unassigned Lead Alert',
-            text: `A new lead could not be matched to a partner.\n\nLead ID: ${lead._id}\nName: ${lead.name}\nPostcode: ${lead.postcode}\nCategory: ${lead.category}\n\nPlease log in to the admin dashboard to assign manually.`,
-        });
-        console.log('[Admin] Unassigned lead notification sent');
+        console.log('[Admin] Unassigned lead notification sent via Resend');
     } catch (err) {
         console.error('[Admin] Failed to send unassigned alert:', err.message);
     }

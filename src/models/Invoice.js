@@ -6,7 +6,7 @@ const invoiceSchema = new mongoose.Schema({
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', required: true },
     commissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Commission', required: true },
     amount: { type: Number, required: true },
-    status: { type: String, enum: ['pending', 'paid', 'overdue'], default: 'pending' },
+    status: { type: String, enum: ['paid', 'unpaid', 'reversed'], default: 'unpaid' },
     pdfPath: { type: String, required: true },
     issuedAt: { type: Date, default: Date.now },
     dueDate: { type: Date, required: true },
