@@ -46,16 +46,17 @@ const calculateCommission = (category, partnerFee = 0, rdTaxYear = null) => {
 
 /**
  * Apply the introducer split to a total commission figure.
- * If introducerId is present: 30% introducer, 70% WiseMove.
+ * If introducerId is present: Uses the provided introducerShare percentage.
  * If no introducer: 100% WiseMove.
  *
  * @param {number} totalCommission
  * @param {ObjectId|null} introducerId
+ * @param {number} introducerSharePercent - Percentage that goes to introducer (e.g. 30)
  * @returns {{ introducerShare: number, wisemoveShare: number }}
  */
-const applySplit = (totalCommission, introducerId) => {
-    if (introducerId) {
-        const introducerShare = +(totalCommission * 0.3).toFixed(2);
+const applySplit = (totalCommission, introducerId, introducerSharePercent = 30) => {
+    if (introducerId && introducerSharePercent > 0) {
+        const introducerShare = +(totalCommission * (introducerSharePercent / 100)).toFixed(2);
         const wisemoveShare = +(totalCommission - introducerShare).toFixed(2);
         return { introducerShare, wisemoveShare };
     }

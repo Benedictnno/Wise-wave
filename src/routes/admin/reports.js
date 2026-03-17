@@ -5,10 +5,93 @@ const validate = require('../../middleware/validate');
 const authMiddleware = require('../../middleware/auth');
 const Lead = require('../../models/Lead');
 const Commission = require('../../models/Commission');
+const Partner = require('../../models/Partner');
 const { AsyncParser } = require('json2csv');
 
 // All routes require JWT auth
 router.use(authMiddleware);
+
+/**
+ * @openapi
+ * /admin/reports/stats:
+ *   get:
+ *     summary: Get dashboard overview stats
+ *     description: Returns key metrics for the admin dashboard, including lead counts, active partners, conversion rates, and 30-day trends.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics
+ */
+// GET /admin/reports/stats
+router.get('/stats', async (req, res) => {
+    try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+        // helper for trend strings
+        const getTrend = (current, previous) => {
+            if (previous === 0) return current > 0 ? `+${100}%` : '0%';
+            const change = ((current - previous) / previous) * 100;
+            return (change >= 0 ? '+' : '') + change.toFixed(1) + '%';
+        };
+
+        // --- 1. Total Leads ---
+        const totalLeads = await Lead.countDocuments();
+        const leadsCurrent = await Lead.countDocuments({ createdAt: { $gte: thirtyDaysAgo } });
+        const leadsPrevious = await Lead.countDocuments({ 
+            createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } 
+        });
+        const leadsTrend = getTrend(leadsCurrent, leadsPrevious);
+
+        // --- 2. Active Partners ---
+        const activePartners = await Partner.countDocuments({ status: 'active' });
+        const partnersCurrent = await Partner.countDocuments({ 
+            status: 'active', 
+            createdAt: { $gte: thirtyDaysAgo } 
+        });
+        const partnersPrevious = await Partner.countDocuments({ 
+            status: 'active', 
+            createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } 
+        });
+        const partnersTrend = getTrend(partnersCurrent, partnersPrevious);
+
+        // --- 3. Conversion Rate ---
+        const wonLeadsTotal = await Lead.countDocuments({ outcome: 'won' });
+        const conversionRate = totalLeads > 0 ? (wonLeadsTotal / totalLeads) * 100 : 0;
+
+        // Current period conversion
+        const leadsLast30 = await Lead.countDocuments({ createdAt: { $gte: thirtyDaysAgo } });
+        const wonLast30 = await Lead.countDocuments({ outcome: 'won', updatedAt: { $gte: thirtyDaysAgo } });
+        const convCurrent = leadsLast30 > 0 ? (wonLast30 / leadsLast30) * 100 : 0;
+
+        // Previous period conversion
+        const leadsPrev30 = await Lead.countDocuments({ 
+            createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } 
+        });
+        const wonPrev30 = await Lead.countDocuments({ 
+            outcome: 'won', 
+            updatedAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } 
+        });
+        const convPrev = leadsPrev30 > 0 ? (wonPrev30 / leadsPrev30) * 100 : 0;
+        
+        const conversionTrend = getTrend(convCurrent, convPrev);
+
+        return res.status(200).json({
+            totalLeads,
+            activePartners,
+            conversionRate: +conversionRate.toFixed(1),
+            leadsTrend,
+            partnersTrend,
+            conversionTrend
+        });
+    } catch (err) {
+        console.error('[GET /admin/reports/stats]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 // ─── Helper: stream CSV response ─────────────────────────────────────────────
 const sendCSV = async (res, data, filename) => {

@@ -57,17 +57,16 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         let wisemoveShareValue = totalCommission;
 
         if (lead.introducerId) {
-            if (rule.type !== 'split') {
-                // If it's a split rule, the introducerShare from the rule determines it.
-                // Otherwise use default 30/70 or the rule specified
-                const ruleIntroducerPercent = rule.introducerShare > 0 ? rule.introducerShare : 30;
-                introducerShareValue = +(totalCommission * (ruleIntroducerPercent / 100)).toFixed(2);
-                wisemoveShareValue = +(totalCommission - introducerShareValue).toFixed(2);
-            } else {
-                // Custom split rule defines wisemoveShare and introducerShare as percentages of partnerFee
-                introducerShareValue = +(partnerFee * (rule.introducerShare / 100)).toFixed(2);
-                // totalCommission for split logic
-                totalCommission = wisemoveShareValue + introducerShareValue; 
+            // Use the introducerShare percentage from the rule
+            const ruleIntroducerPercent = rule.introducerShare;
+            introducerShareValue = +(totalCommission * (ruleIntroducerPercent / 100)).toFixed(2);
+            wisemoveShareValue = +(totalCommission - introducerShareValue).toFixed(2);
+
+            if (rule.type === 'split') {
+                // For 'split' type, totalCommission is the sum of both shares as percentage of partnerFee
+                // (Note: In master seed, I mapped percentage logic to percentage rules, but kept fixed as fixed)
+                // This 'split' type seems legacy or specific to some cases.
+                // Based on Master Seed, I am using 'fixed' and 'percentage'.
             }
         }
 
