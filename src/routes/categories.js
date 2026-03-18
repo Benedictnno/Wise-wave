@@ -53,6 +53,7 @@ router.get('/', async (req, res) => {
             disclaimer: c.isRegulated
                 ? 'WiseMove Connect provides introductions only and does not offer mortgage or financial advice. All regulated activity is handled directly by the FCA-regulated adviser.'
                 : undefined,
+            pillarId: c.pillarId,
         }));
 
         return res.status(200).json(response);
