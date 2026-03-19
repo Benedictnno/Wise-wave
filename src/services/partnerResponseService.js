@@ -4,6 +4,8 @@ const CommissionRule = require('../models/CommissionRule');
 const Introduction = require('../models/Introduction');
 const PartnerResponse = require('../models/PartnerResponse');
 const { generateInvoice } = require('./invoiceService');
+const { applySplit } = require('./commissionService');
+
 
 /**
  * Processes a partner's outcome submission.
@@ -50,25 +52,16 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         } else if (rule.type === 'percentage') {
             totalCommission = partnerFee * (rule.percentage / 100);
         } else if (rule.type === 'split') {
-            totalCommission = partnerFee * (rule.wisemoveShare / 100); 
+            totalCommission = partnerFee * (rule.wisemoveShare / 100);
         }
 
         let introducerShareValue = 0;
         let wisemoveShareValue = totalCommission;
 
-        if (lead.introducerId) {
-            // Use the introducerShare percentage from the rule
-            const ruleIntroducerPercent = rule.introducerShare;
-            introducerShareValue = +(totalCommission * (ruleIntroducerPercent / 100)).toFixed(2);
-            wisemoveShareValue = +(totalCommission - introducerShareValue).toFixed(2);
-
-            if (rule.type === 'split') {
-                // For 'split' type, totalCommission is the sum of both shares as percentage of partnerFee
-                // (Note: In master seed, I mapped percentage logic to percentage rules, but kept fixed as fixed)
-                // This 'split' type seems legacy or specific to some cases.
-                // Based on Master Seed, I am using 'fixed' and 'percentage'.
-            }
-        }
+        // Apply tiered introducer split (CommissionRule.introducerShare overrides tier lookup)
+        const splitResult = await applySplit(totalCommission, lead.introducerId || null, rule.introducerShare || null);
+        introducerShareValue = splitResult.introducerShare;
+        wisemoveShareValue = splitResult.wisemoveShare;
 
         const commission = await Commission.create({
             leadId: lead._id,

@@ -4,6 +4,8 @@ const { body } = require('express-validator');
 const validate = require('../../middleware/validate');
 const authMiddleware = require('../../middleware/auth');
 const Lead = require('../../models/Lead');
+const Commission = require('../../models/Commission');
+const Invoice = require('../../models/Invoice');
 
 // All routes require JWT auth
 router.use(authMiddleware);
@@ -44,7 +46,7 @@ router.get('/', async (req, res) => {
 
         const leads = await Lead.find(filter)
             .populate('category', 'name')
-            .populate('assignedPartnerId', 'name email')
+            .populate('assignedPartnerId', 'companyName email')
             .populate('introducerId', 'name email')
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
@@ -109,7 +111,7 @@ router.get('/:id', async (req, res) => {
     try {
         const lead = await Lead.findById(req.params.id)
             .populate('category', 'name commissionType commissionValue isRegulated')
-            .populate('assignedPartnerId', 'name email phone')
+            .populate('assignedPartnerId', 'companyName email phone')
             .populate('introducerId', 'name email');
         if (!lead) return res.status(404).json({ error: 'Lead not found' });
         return res.status(200).json(lead);
@@ -157,7 +159,7 @@ router.patch(
                 req.params.id,
                 { assignedPartnerId: req.body.partnerId, status: 'assigned' },
                 { new: true }
-            ).populate('assignedPartnerId', 'name email');
+            ).populate('assignedPartnerId', 'companyName email');
             if (!lead) return res.status(404).json({ error: 'Lead not found' });
             return res.status(200).json({ message: 'Lead assigned', lead });
         } catch (err) {
@@ -217,10 +219,56 @@ router.patch(
 
 /**
  * @openapi
+ * /admin/leads/{id}/erase:
+ *   patch:
+ *     summary: GDPR right to erasure — anonymise lead personal data
+ *     description: >
+ *       Anonymises personal identifiers on a lead (name, email, phone) to comply with
+ *       GDPR right-to-erasure requests. The lead row is retained for audit and commission
+ *       integrity. Commission and Invoice records are not altered since they contain no PII.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead anonymised
+ *       404:
+ *         description: Lead not found
+ */
+// PATCH /admin/leads/:id/erase — GDPR right to erasure
+router.patch('/:id/erase', async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+        // Anonymise PII fields in place — preserve the record for audit trail
+        lead.name = '[REDACTED]';
+        lead.email = `redacted-${lead._id}@wisemove.internal`;
+        lead.phone = '[REDACTED]';
+        lead.description = '[REDACTED]';
+        lead.consentAccepted = false;
+        lead.adminNotes = (lead.adminNotes || '') + '\n[GDPR erasure applied]';
+        await lead.save();
+
+        console.log(`[GDPR] Lead ${lead._id} personal data anonymised.`);
+        return res.status(200).json({ message: 'Lead personal data erased (GDPR)', leadId: lead._id });
+    } catch (err) {
+        console.error('[PATCH /admin/leads/:id/erase]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * @openapi
  * /admin/leads/{id}:
  *   delete:
- *     summary: Delete lead (GDPR)
- *     description: Permanently deletes a lead for GDPR compliance.
+ *     summary: Hard-delete a lead record
+ *     description: Permanently removes a lead from the database. Use /erase for GDPR erasure which preserves audit trails.
  *     tags: [Admin Leads]
  *     security:
  *       - bearerAuth: []
@@ -233,12 +281,12 @@ router.patch(
  *       200:
  *         description: Lead deleted
  */
-// DELETE /admin/leads/:id — GDPR deletion
+// DELETE /admin/leads/:id — hard delete (admin only)
 router.delete('/:id', async (req, res) => {
     try {
         const lead = await Lead.findByIdAndDelete(req.params.id);
         if (!lead) return res.status(404).json({ error: 'Lead not found' });
-        return res.status(200).json({ message: 'Lead deleted (GDPR)' });
+        return res.status(200).json({ message: 'Lead deleted' });
     } catch (err) {
         console.error('[DELETE /admin/leads/:id]', err.message);
         return res.status(500).json({ error: 'Internal server error' });

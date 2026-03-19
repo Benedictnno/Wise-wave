@@ -79,10 +79,18 @@ router.get('/stats', async (req, res) => {
         
         const conversionTrend = getTrend(convCurrent, convPrev);
 
+        // --- 4. Total Revenue (paid WiseMove commission share) ---
+        const revenueAgg = await Commission.aggregate([
+            { $match: { commissionStatus: 'paid' } },
+            { $group: { _id: null, total: { $sum: '$wisemoveShare' } } },
+        ]);
+        const totalRevenue = revenueAgg.length > 0 ? +revenueAgg[0].total.toFixed(2) : 0;
+
         return res.status(200).json({
             totalLeads,
             activePartners,
             conversionRate: +conversionRate.toFixed(1),
+            totalRevenue,
             leadsTrend,
             partnersTrend,
             conversionTrend
@@ -146,7 +154,7 @@ router.get('/partners', async (req, res) => {
             {
                 $project: {
                     partnerId: '$_id',
-                    partnerName: '$partner.name',
+                    partnerName: '$partner.companyName',
                     partnerEmail: '$partner.email',
                     totalLeads: 1,
                     paidCommissions: {
@@ -366,7 +374,7 @@ router.get('/export', async (req, res) => {
                 {
                     $project: {
                         _id: 0,
-                        Partner: '$partner.name',
+                        Partner: '$partner.companyName',
                         Email: '$partner.email',
                         'Total Leads': '$totalLeads',
                         'Deals Reported': { $size: '$commissions' },

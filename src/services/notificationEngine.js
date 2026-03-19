@@ -250,4 +250,60 @@ const dispatchNotifications = async (lead, partner, category) => {
     return intro;
 };
 
-module.exports = { dispatchNotifications, notifyAdminUnassigned };
+// ─── Confirmation Email to Lead Submitter ─────────────────────────────────────
+/**
+ * Send a GDPR-compliant confirmation email to the person who submitted the lead.
+ * Sent after lead is stored regardless of routing outcome.
+ *
+ * @param {Object} lead     - Mongoose Lead document
+ * @param {Object} category - Mongoose Category document
+ * @returns {Promise<boolean>}
+ */
+const sendLeadConfirmation = async (lead, category) => {
+    try {
+        const apiKey = process.env.RESEND_API_KEY;
+        if (!apiKey) {
+            console.warn('[Lead Confirm] Resend API key not configured — skipping confirmation email');
+            return false;
+        }
+
+        const isRegulated = category && category.isRegulated;
+        const regulatedDisclaimer = isRegulated
+            ? '\n\nPlease note: WiseMove Connect provides introductions only and does not offer mortgage or financial advice. All regulated activity is handled directly by the FCA-regulated adviser.'
+            : '';
+
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                to: lead.email,
+                subject: 'We received your enquiry — WiseMove Connect',
+                text:
+                    `Hi ${lead.name},\n\n` +
+                    `Thank you for reaching out to WiseMove Connect. We have received your enquiry for ` +
+                    `${category ? category.name : 'our services'} and will match you with a specialist shortly.\n\n` +
+                    `What happens next:\n` +
+                    `A trusted specialist will contact you directly at ${lead.phone} or ${lead.email}.\n\n` +
+                    `If you have any questions in the meantime, please do not hesitate to get in touch.` +
+                    `${regulatedDisclaimer}\n\n` +
+                    `WiseMove Connect`,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || `Resend error ${response.status}`);
+
+        console.log(`[Lead Confirm] Confirmation sent to ${lead.email}`);
+        return true;
+    } catch (err) {
+        console.error(`[Lead Confirm] Failed for lead ${lead._id}:`, err.message);
+        return false;
+    }
+};
+
+module.exports = { dispatchNotifications, notifyAdminUnassigned, sendLeadConfirmation };
+

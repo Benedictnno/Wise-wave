@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const categorySchema = new mongoose.Schema({
     externalId: { type: Number, unique: true, sparse: true },
     name: { type: String, required: true, unique: true, trim: true },
+    slug: { type: String, unique: true, index: true },
     pillarId: { type: String, enum: ['Property Services', 'Business Services', 'Personal Services'], required: true },
     commissionType: {
         type: String,
@@ -17,6 +18,16 @@ const categorySchema = new mongoose.Schema({
     isRegulated: { type: Boolean, default: false }, // triggers FCA disclaimer
     isActive: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now },
+});
+
+// Auto-generate slug from name before saving if not provided
+categorySchema.pre('save', function() {
+    if ((this.isModified('name') || this.isNew) && !this.slug) {
+        this.slug = this.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with hyphen
+            .replace(/(^-|-$)+/g, '');   // trim trailing/leading hyphens
+    }
 });
 
 module.exports = mongoose.model('Category', categorySchema);

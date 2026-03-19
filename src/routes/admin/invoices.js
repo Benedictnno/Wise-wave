@@ -5,6 +5,8 @@ const { body } = require('express-validator');
 const validate = require('../../middleware/validate');
 const authMiddleware = require('../../middleware/auth');
 const Invoice = require('../../models/Invoice');
+const Partner = require('../../models/Partner');
+const { sendInvoiceEmail } = require('../../services/invoiceService');
 const fs = require('fs');
 
 // All routes require JWT auth
@@ -41,7 +43,7 @@ router.get('/', async (req, res) => {
 
         const invoices = await Invoice.find(filter)
             .populate('leadId', 'name postcode')
-            .populate('partnerId', 'name email')
+            .populate('partnerId', 'companyName email')
             .sort({ issuedAt: -1 })
             .skip((page - 1) * limit)
             .limit(Number(limit));
@@ -151,5 +153,45 @@ router.patch(
         }
     }
 );
+
+/**
+ * @openapi
+ * /admin/invoices/{id}/resend:
+ *   post:
+ *     summary: Resend invoice email to partner
+ *     description: Re-emails the invoice PDF link to the partner's registered email address.
+ *     tags: [Admin Invoices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Invoice email resent
+ *       404:
+ *         description: Invoice or partner not found
+ */
+router.post('/:id/resend', async (req, res) => {
+    try {
+        const invoice = await Invoice.findById(req.params.id);
+        if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+        const partner = await Partner.findById(invoice.partnerId);
+        if (!partner) return res.status(404).json({ error: 'Partner not found for this invoice' });
+
+        const sent = await sendInvoiceEmail(invoice, partner);
+        if (!sent) {
+            return res.status(500).json({ error: 'Failed to resend invoice email — check email configuration' });
+        }
+
+        return res.status(200).json({ message: `Invoice ${invoice.invoiceNumber} resent to ${partner.email}` });
+    } catch (err) {
+        console.error('[POST /admin/invoices/:id/resend]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 module.exports = router;

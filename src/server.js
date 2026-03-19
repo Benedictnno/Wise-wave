@@ -9,13 +9,18 @@ const connectDB = require('./config/db');
 // ─── Route Imports ────────────────────────────────────────────────────────────
 const leadsRoute = require('./routes/leads');
 const categoriesRoute = require('./routes/categories');
+const partnersRoute = require('./routes/partners');
+const questionnaireRoute = require('./routes/questionnaire');
+const introducersRoute = require('./routes/introducers');
 const adminAuthRoute = require('./routes/admin/auth');
 const adminPartnersRoute = require('./routes/admin/partners');
 const adminLeadsRoute = require('./routes/admin/leads');
-const adminCommissionsRoute = require('./routes/admin/commissions');
-const adminReportsRoute = require('./routes/admin/reports');
 const adminCategoriesRoute = require('./routes/admin/categories');
+const adminCommissionsRoute = require('./routes/admin/commissions');
 const adminInvoicesRoute = require('./routes/admin/invoices');
+const adminReportsRoute = require('./routes/admin/reports');
+const adminSettingsRoute = require('./routes/admin/settings');
+const adminQuestionnaireRoute = require('./routes/admin/questionnaire');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
@@ -65,8 +70,11 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 app.use('/api/leads', leadLimiter, leadsRoute);
+app.use('/api/partners', leadLimiter, partnersRoute);
 app.use('/api/partner-response', require('./routes/partnerResponse'));
 app.use('/api/categories', categoriesRoute);
+app.use('/api/questionnaire', questionnaireRoute);
+app.use('/api/introducers', introducersRoute);
 
 // ─── Admin Routes (all JWT-protected within their routers) ───────────────────
 app.use('/admin/auth', adminLimiter, adminAuthRoute);
@@ -76,6 +84,8 @@ app.use('/admin/commissions', adminLimiter, adminCommissionsRoute);
 app.use('/admin/reports', adminLimiter, adminReportsRoute);
 app.use('/admin/categories', adminLimiter, adminCategoriesRoute);
 app.use('/admin/invoices', adminLimiter, adminInvoicesRoute);
+app.use('/admin/settings', adminLimiter, adminSettingsRoute);
+app.use('/admin/questionnaire', adminLimiter, adminQuestionnaireRoute);
 
 // ─── API Documentation ────────────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));

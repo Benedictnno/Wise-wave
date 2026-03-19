@@ -9,7 +9,10 @@
     "seed:admin": "node src/seeds/adminSeed.js",
     "seed:categories": "node src/seeds/categorySeed.js",
     "seed:relationships": "node src/seeds/categoryRelationshipSeed.js",
-    "seed:all": "npm run seed:categories && npm run seed:relationships && npm run seed:admin"
+    "seed:all": "npm run seed:categories && npm run seed:relationships && npm run seed:admin",
+    "seed:master": "node src/seeds/masterCategorySeed.js",
+    "seed:master:relationships": "node src/seeds/masterCategoryRelationshipSeed.js",
+    "seed:master:all": "npm run seed:master && npm run seed:master:relationships && npm run seed:admin"
   },
   "keywords": [],
   "author": "",

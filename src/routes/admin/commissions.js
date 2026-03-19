@@ -143,7 +143,7 @@ router.post(
 
             const category = lead.category;
             const total = calculateCommission(category, Number(partnerFee), rdTaxYear ? Number(rdTaxYear) : null);
-            const { introducerShare, wisemoveShare } = applySplit(total, lead.introducerId);
+            const { introducerShare, wisemoveShare } = await applySplit(total, lead.introducerId || null);
 
             const commission = await Commission.create({
                 leadId,
