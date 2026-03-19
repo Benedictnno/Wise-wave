@@ -19,8 +19,6 @@ const adminCategoriesRoute = require('./routes/admin/categories');
 const adminCommissionsRoute = require('./routes/admin/commissions');
 const adminInvoicesRoute = require('./routes/admin/invoices');
 const adminReportsRoute = require('./routes/admin/reports');
-const adminSettingsRoute = require('./routes/admin/settings');
-const adminQuestionnaireRoute = require('./routes/admin/questionnaire');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
@@ -84,8 +82,6 @@ app.use('/admin/commissions', adminLimiter, adminCommissionsRoute);
 app.use('/admin/reports', adminLimiter, adminReportsRoute);
 app.use('/admin/categories', adminLimiter, adminCategoriesRoute);
 app.use('/admin/invoices', adminLimiter, adminInvoicesRoute);
-app.use('/admin/settings', adminLimiter, adminSettingsRoute);
-app.use('/admin/questionnaire', adminLimiter, adminQuestionnaireRoute);
 
 // ─── API Documentation ────────────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));
