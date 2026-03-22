@@ -4,7 +4,7 @@ const commissionSchema = new mongoose.Schema({
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: true },
     partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', required: true },
     categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
-    commissionType: { type: String, enum: ['percentage', 'flat', 'tiered'], required: true },
+    commissionType: { type: String, enum: ['fixed', 'percentage', 'tiered'], required: true },
     commissionValue: { type: Number, required: true }, // total calculated commission in £
     commissionStatus: {
         type: String,

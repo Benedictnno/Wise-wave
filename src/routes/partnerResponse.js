@@ -10,26 +10,19 @@ const { processPartnerResponse } = require('../services/partnerResponseService')
  * /api/partner-response/{token}:
  *   get:
  *     summary: Get lead details for outcome reporting
- *     description: Returns limited lead details for a partner to report the outcome using their secure token.
- *     tags: [PartnerResponse]
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Lead details
- *       404:
- *         description: Invalid or expired token
  */
 router.get('/:token', async (req, res) => {
     try {
         const lead = await Lead.findOne({ outcomeToken: req.params.token })
             .populate('category', 'name')
-            .select('name postcode description createdAt outcome partnerFee');
+            .select('name postcode description createdAt outcome partnerFee outcomeTokenExpiry');
         
-        if (!lead) return res.status(404).json({ error: 'Invalid or expired outcome link' });
+        if (!lead) return res.status(404).json({ error: 'Invalid or missing outcome link' });
+        
+        // Enforce 7-day token expiry
+        if (lead.outcomeTokenExpiry && new Date() > lead.outcomeTokenExpiry) {
+            return res.status(410).json({ error: 'This secure outcome link has expired (7-day window exceeded). Please contact WiseMove support if you still need to report this lead.' });
+        }
         
         return res.status(200).json(lead);
     } catch (err) {
@@ -43,32 +36,6 @@ router.get('/:token', async (req, res) => {
  * /api/partner-response/{token}:
  *   post:
  *     summary: Submit lead outcome
- *     description: Partner marks the lead as won, lost, or not suitable. If won, triggers commission.
- *     tags: [PartnerResponse]
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema: { type: string }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [outcome]
- *             properties:
- *               outcome:
- *                 type: string
- *                 enum: [won, lost, not_suitable]
- *               partnerFee:
- *                 type: number
- *                 description: Required if outcome is 'won' and commission rule requires fee
- *               notes:
- *                 type: string
- *     responses:
- *       200:
- *         description: Outcome recorded successfully
  */
 router.post(
     '/:token',
@@ -83,7 +50,13 @@ router.post(
             const { outcome, partnerFee, notes } = req.body;
             const lead = await Lead.findOne({ outcomeToken: req.params.token }).populate('category');
             
-            if (!lead) return res.status(404).json({ error: 'Invalid or expired outcome link' });
+            if (!lead) return res.status(404).json({ error: 'Invalid or missing outcome link' });
+            
+            // Enforce 7-day token expiry
+            if (lead.outcomeTokenExpiry && new Date() > lead.outcomeTokenExpiry) {
+                return res.status(410).json({ error: 'This secure outcome link has expired (7-day window exceeded).' });
+            }
+
             if (lead.outcome) return res.status(400).json({ error: 'Outcome has already been reported for this lead' });
 
             const result = await processPartnerResponse(lead, outcome, partnerFee, notes);

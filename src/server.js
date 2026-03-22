@@ -19,6 +19,12 @@ const adminCategoriesRoute = require('./routes/admin/categories');
 const adminCommissionsRoute = require('./routes/admin/commissions');
 const adminInvoicesRoute = require('./routes/admin/invoices');
 const adminReportsRoute = require('./routes/admin/reports');
+const adminExclusivityRoute = require('./routes/admin/exclusivity');
+const adminPayoutsRoute = require('./routes/admin/payouts');
+const adminQualificationRoute = require('./routes/admin/qualification');
+const qualifyRoute = require('./routes/qualify');
+const subservicesRoute = require('./routes/subservices');
+const stripeWebhookRoute = require('./routes/webhooks/stripe');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
@@ -61,6 +67,9 @@ const adminLimiter = rateLimit({
     message: { error: 'Too many requests — please try again later' },
 });
 
+// --- Stripe Webhook (Raw Body Needed) ---
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoute);
+
 // ─── Body Parsing & Logging ───────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -73,6 +82,8 @@ app.use('/api/partner-response', require('./routes/partnerResponse'));
 app.use('/api/categories', categoriesRoute);
 app.use('/api/questionnaire', questionnaireRoute);
 app.use('/api/introducers', introducersRoute);
+app.use('/api/qualify', qualifyRoute);
+app.use('/api/subservices', subservicesRoute);
 
 // ─── Admin Routes (all JWT-protected within their routers) ───────────────────
 app.use('/admin/auth', adminLimiter, adminAuthRoute);
@@ -82,6 +93,9 @@ app.use('/admin/commissions', adminLimiter, adminCommissionsRoute);
 app.use('/admin/reports', adminLimiter, adminReportsRoute);
 app.use('/admin/categories', adminLimiter, adminCategoriesRoute);
 app.use('/admin/invoices', adminLimiter, adminInvoicesRoute);
+app.use('/admin/exclusivity', adminExclusivityRoute);
+app.use('/admin/payouts', adminPayoutsRoute);
+app.use('/admin/qualification', adminQualificationRoute);
 
 // ─── API Documentation ────────────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));

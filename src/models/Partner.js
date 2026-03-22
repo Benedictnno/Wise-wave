@@ -8,17 +8,19 @@ const partnerSchema = new mongoose.Schema(
         phone: { type: String, required: true, trim: true },
         whatsappNumber: { type: String, trim: true, default: '' },
         preferredContactMethod: { type: String, enum: ['email', 'sms', 'whatsapp'], default: 'email' },
+        backupDeliveryMethod: { type: String, enum: ['email', 'sms', 'whatsapp'], default: 'email' },
         categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+        subservices: [{ type: String }], // Array for R&D sub-categories
         postcodes: [{ type: String, trim: true, uppercase: true }],
         priority: { type: Number, required: true, default: 10 },
         status: { type: String, enum: ['active', 'inactive'], default: 'active' },
         agreementAccepted: { type: Boolean, required: true },
         agreementTimestamp: { type: Date, required: true },
+        metadata: mongoose.Schema.Types.Mixed
     },
     { timestamps: true }
 );
 
-// Index for fast routing queries (MongoDB allows at most one array field per compound index)
 partnerSchema.index({ categories: 1, status: 1, priority: 1 });
 
 module.exports = mongoose.model('Partner', partnerSchema);

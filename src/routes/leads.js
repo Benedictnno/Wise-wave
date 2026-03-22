@@ -5,48 +5,13 @@ const validate = require('../middleware/validate');
 const Lead = require('../models/Lead');
 const Category = require('../models/Category');
 const Introducer = require('../models/Introducer');
+const { generateReferenceId } = require('../services/referenceId');
 const { findMatchingPartner } = require('../services/routingEngine');
 const { dispatchNotifications, notifyAdminUnassigned, sendLeadConfirmation } = require('../services/notificationEngine');
 const { incrementIntroducerMonthlyCount } = require('../services/commissionService');
 const { evaluateAnswers } = require('../services/questionnaireEngine');
 const { v4: uuidv4 } = require('uuid');
 
-/**
- * @openapi
- * /api/leads:
- *   post:
- *     summary: Submit a new lead
- *     description: Receives a new lead and triggers the routing engine. Supports direct category ID or questionnaire answers.
- *     tags: [Leads]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, phone, postcode]
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *               phone:
- *                 type: string
- *               postcode:
- *                 type: string
- *               category:
- *                 type: string
- *               answers:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     questionKey: { type: string }
- *                     answerValues: { type: array, items: { type: string } }
- *     responses:
- *       200:
- *         description: Lead received successfully
- */
 router.post(
     '/',
     [
@@ -58,12 +23,12 @@ router.post(
         body('answers').optional({ nullable: true }).isArray(),
         body('description').optional().trim(),
         body('consentAccepted').isBoolean().withMessage('Consent must be accepted'),
-        body('formSource').optional().isIn(['category_page', 'request_service']).withMessage('Invalid form source'),
+        body('formSource').optional().isIn(['category_page', 'request_service', 'introducer_form', 'qualification_flow']).withMessage('Invalid form source'),
     ],
     validate,
     async (req, res) => {
         try {
-            const { name, email, phone, postcode, category, answers, description, introducer_id, consentAccepted, formSource } = req.body;
+            const { name, companyName, email, phone, postcode, category, subservices, answers, description, introducer_id, consentAccepted, formSource } = req.body;
 
             if (!category && (!answers || answers.length === 0)) {
                 return res.status(400).json({ error: 'Must provide either a category or questionnaire answers' });
@@ -114,31 +79,42 @@ router.post(
                 let source = formSource;
                 if (!source) source = (answers && answers.length > 0) ? 'request_service' : 'category_page';
 
+                const referenceId = await generateReferenceId();
+
                 const lead = await Lead.create({
+                    referenceId,
                     name,
+                    companyName: companyName || '',
                     email,
                     phone,
                     postcode: postcode.toUpperCase().trim(),
                     category: categoryDoc._id,
+                    subservices: Array.isArray(subservices) ? subservices : [],
                     description: description || '',
                     introducerId: validIntroducerId,
                     status: 'unassigned',
                     consentAccepted: consentAccepted === true || consentAccepted === 'true',
                     consentTimestamp: new Date(),
                     formSource: source,
+                    qualificationAnswers: answers || null
                 });
                 leadsCreated.push({ lead, categoryDoc });
             }
 
             // Route all leads independently
             for (const { lead, categoryDoc } of leadsCreated) {
-                const partner = await findMatchingPartner(categoryDoc._id, postcode);
+                // Signature change: findMatchingPartner(categoryDoc, postcode)
+                const partner = await findMatchingPartner(categoryDoc, postcode);
 
                 if (partner) {
                     lead.assignedPartnerId = partner._id;
                     lead.status = 'assigned';
                     lead.assignedAt = new Date();
                     lead.outcomeToken = uuidv4();
+                    // Enforce 7-day token expiry
+                    const expiryDate = new Date();
+                    expiryDate.setDate(expiryDate.getDate() + 7);
+                    lead.outcomeTokenExpiry = expiryDate;
                     await lead.save();
 
                     dispatchNotifications(lead, partner, categoryDoc).catch((err) =>
@@ -153,7 +129,6 @@ router.post(
             }
 
             // Only send one confirmation email for the overall submission.
-            // Using the first category/lead generated to pass to the email context 
             const primaryLeadInfo = leadsCreated[0];
             if (primaryLeadInfo) {
                 sendLeadConfirmation(primaryLeadInfo.lead, primaryLeadInfo.categoryDoc).catch((err) =>
@@ -161,7 +136,7 @@ router.post(
                 );
             }
 
-            return res.status(200).json({ message: "Thanks — we'll match you shortly." });
+            return res.status(200).json({ message: "Thanks — we'll match you shortly.", referenceId: leadsCreated[0].lead.referenceId });
         } catch (err) {
             console.error('[POST /api/leads]', err.message);
             return res.status(500).json({ error: 'Internal server error' });
