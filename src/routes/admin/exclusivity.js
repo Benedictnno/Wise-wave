@@ -35,6 +35,15 @@ router.post(
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
         try {
+            const Partner = require('../../models/Partner');
+            const partner = await Partner.findById(req.body.partnerId);
+            if (!partner) return res.status(404).json({ error: 'Partner not found' });
+            
+            // M-7: Check if partner covers this service
+            if (!partner.categories.includes(req.body.categoryId)) {
+                return res.status(400).json({ error: 'Cannot grant exclusivity: Partner does not cover this service category.' });
+            }
+
             const record = await PostcodeExclusivity.create(req.body);
             return res.status(201).json(record);
         } catch (err) {

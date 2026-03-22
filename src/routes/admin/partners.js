@@ -55,4 +55,27 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// PATCH /admin/partners/:id/status
+router.patch(
+    '/:id/status',
+    [
+        body('status').isIn(['active', 'inactive', 'pending']).withMessage('Status must be active, inactive, or pending')
+    ],
+    validate,
+    async (req, res) => {
+        try {
+            const partner = await Partner.findByIdAndUpdate(
+                req.params.id,
+                { status: req.body.status, updatedAt: new Date() },
+                { new: true, runValidators: true }
+            );
+            if (!partner) return res.status(404).json({ error: 'Partner not found' });
+            return res.status(200).json({ message: 'Partner status updated', partner });
+        } catch (err) {
+            console.error('[PATCH /admin/partners/:id/status]', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
 module.exports = router;

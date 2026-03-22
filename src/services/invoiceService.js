@@ -126,6 +126,7 @@ const generateInvoice = async (lead, commission) => {
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
+    await sendInvoiceEmail(invoice, partner);
     return invoice;
 };
 

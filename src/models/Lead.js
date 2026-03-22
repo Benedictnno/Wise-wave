@@ -26,4 +26,6 @@ const leadSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
+leadSchema.index({ outcomeToken: 1 });
+
 module.exports = mongoose.model('Lead', leadSchema);

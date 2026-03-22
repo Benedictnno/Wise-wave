@@ -26,7 +26,7 @@ const extractPostcodeLevels = (postcode) => {
  * @param {string} postcode - user's postcode
  * @returns {Partner|null}
  */
-const findMatchingPartner = async (categoryDoc, postcode) => {
+const findMatchingPartner = async (categoryDoc, postcode, subserviceIds = []) => {
     const normalised = postcode.toUpperCase().trim();
     const levels = extractPostcodeLevels(normalised);
     
@@ -40,8 +40,7 @@ const findMatchingPartner = async (categoryDoc, postcode) => {
                 { postcode: levels.district },
                 { postcode: levels.area }
             ]
-        }).sort({ level: -1 }); // Priority to Sector, then District, then Area? Match nearest level.
-        // Wait! In database, levels are 'Area', 'District', 'Sector'. Let's find specific first.
+        }).sort({ level: -1 });
         
         if (exclusiveRecord) {
             const partner = await Partner.findOne({ _id: exclusiveRecord.partnerId, status: 'active' });
@@ -50,17 +49,30 @@ const findMatchingPartner = async (categoryDoc, postcode) => {
     }
 
     // 2. STANDARD ROUTING BRANCH (Deterministic Priority-Based)
-    // Matches at: Full Postcode OR Sector OR District OR Area
-    const potentialPartners = await Partner.find({
+    let query = {
         categories: categoryDoc._id,
         postcodes: { 
             $in: [normalised, levels.sector, levels.district, levels.area]
         },
         status: 'active',
-    }).sort({ priority: 1 });
+    };
 
-    if (potentialPartners.length === 0) return null;
-    return potentialPartners[0];
+    if (subserviceIds && subserviceIds.length > 0) {
+        query.subservices = { $all: subserviceIds };
+    }
+
+    const potentialPartners = await Partner.find(query).sort({ priority: 1 });
+
+    if (potentialPartners.length > 0) return potentialPartners[0];
+
+    // Fallback if $all fails, use $in to find partial overlap
+    if (subserviceIds && subserviceIds.length > 0) {
+        query.subservices = { $in: subserviceIds };
+        const fallbackPartners = await Partner.find(query).sort({ priority: 1 });
+        if (fallbackPartners.length > 0) return fallbackPartners[0];
+    }
+
+    return null;
 };
 
 module.exports = { findMatchingPartner };

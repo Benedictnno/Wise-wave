@@ -28,6 +28,13 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         const rule = await CommissionRule.findOne({ categoryId: lead.category._id });
         if (!rule) throw new Error('Commission rule not found for this category');
 
+        // H-1: Special case for R&D (BS-001) where revenue is triggered later
+        if (lead.category.externalId === 'BS-001') {
+            lead.partnerFeeTotal = partnerFee || 0;
+            await lead.save();
+            return { partnerResponse, lead, message: 'Outcome recorded. Please submit revenue details when engagement completes.' };
+        }
+
         // Validations
         if ((rule.type === 'percentage') && (!partnerFee || partnerFee <= 0)) {
             throw new Error('Partner fee is required for percentage commissions');

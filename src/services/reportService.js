@@ -101,7 +101,46 @@ const sendOverdueInvoiceReminders = async () => {
     }
 };
 
+const recoverPendingDeliveries = async () => {
+    try {
+        const Introduction = require('../models/Introduction');
+        const { dispatchNotifications } = require('./notificationEngine');
+        
+        const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
+        const pendingIntros = await Introduction.find({
+            deliveryStatus: 'pending',
+            updatedAt: { $lt: tenMinsAgo }
+        }).populate({
+            path: 'leadId',
+            populate: { path: 'category' }
+        }).populate('partnerId');
+
+        for (const intro of pendingIntros) {
+            if (!intro.leadId || !intro.partnerId) continue;
+            
+            const nextAttempt = intro.deliveryAttempts.length + 1;
+            console.log(`[Recovery] Attempting to recover delivery for lead ${intro.leadId.referenceId}. Attempt ${nextAttempt}`);
+            
+            dispatchNotifications(intro.leadId, intro.partnerId, intro.leadId.category, nextAttempt)
+                .catch(err => console.error('[Recovery] failed to dispatch', err.message));
+        }
+    } catch (err) {
+        console.error('[Recovery Error]', err.message);
+    }
+};
+
 const initCronJobs = () => {
+    // End of month reset for Introducer volumes — 1st of every month at 00:00
+    cron.schedule('0 0 1 * *', async () => {
+        try {
+            const Introducer = require('../models/Introducer');
+            await Introducer.updateMany({}, { leadsThisMonth: 0 });
+            console.log('[Cron] Reset Introducer monthly lead counts');
+        } catch (err) {
+            console.error('[Cron] Error resetting introducer counts:', err.message);
+        }
+    });
+
     // Monthly report — 1st of every month at 08:00
     cron.schedule('0 8 1 * *', async () => {
         const data = await generateMonthlyReport();
@@ -113,7 +152,12 @@ const initCronJobs = () => {
         await sendOverdueInvoiceReminders();
     });
 
-    console.log('[Cron] reporting & overdue reminders scheduled');
+    // Recovery job every 15 minutes for lost retries
+    cron.schedule('*/15 * * * *', async () => {
+        await recoverPendingDeliveries();
+    });
+
+    console.log('[Cron] reporting, overdue reminders, regenerators, and recovery jobs scheduled');
 };
 
 module.exports = { initCronJobs, generateMonthlyReport, sendOverdueInvoiceReminders };

@@ -28,7 +28,7 @@ const CategoryRelationship = require('../models/CategoryRelationship');
  *                     example: "Mortgage Broker"
  *                   commissionType:
  *                     type: string
- *                     enum: [percentage, flat]
+ *                     enum: [percentage, fixed]
  *                   description:
  *                     type: string
  *                   isRegulated:
@@ -89,7 +89,7 @@ router.get('/', async (req, res) => {
 // GET /api/categories/:identifier — single active category by ID or slug
 router.get('/:identifier', async (req, res) => {
     try {
-        const identifier = req.Params?.identifier || req.params.identifier;
+        const identifier = req.params.identifier;
         let query = { isActive: true };
         
         // Check if identifier is a valid MongoDB ObjectId

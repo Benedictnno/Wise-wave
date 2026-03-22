@@ -142,22 +142,28 @@ router.post(
             if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
             const category = lead.category;
-            const total = calculateCommission(category, Number(partnerFee), rdTaxYear ? Number(rdTaxYear) : null);
-            const { introducerShare, wisemoveShare } = await applySplit(total, lead.introducerId || null);
+            const CommissionRule = require('../../models/CommissionRule');
+            const rule = await CommissionRule.findOne({ categoryId: category._id });
+            if (!rule) return res.status(400).json({ error: 'No commission rule configuration for this category.' });
+
+            const total = calculateCommission(rule, Number(partnerFee), rdTaxYear ? Number(rdTaxYear) : null);
 
             const commission = await Commission.create({
                 leadId,
                 partnerId,
                 categoryId: category._id,
-                commissionType: category.commissionType,
+                commissionType: rule.type,
                 commissionValue: total,
                 introducerId: lead.introducerId || null,
-                introducerShare,
-                wisemoveShare,
+                introducerShare: 0,
+                wisemoveShare: total,
                 rdTaxYear: rdTaxYear || null,
-                notes: notes || '',
+                notes: notes || 'Admin Manual Creation',
+                commissionStatus: 'unpaid'
             });
 
+            // Optional: You could generate an invoice here too using invoiceService
+            
             return res.status(201).json(commission);
         } catch (err) {
             console.error('[POST /admin/commissions]', err.message);

@@ -10,6 +10,52 @@ const { v4: uuidv4 } = require('uuid');
 
 router.use(authMiddleware);
 
+// GET /admin/leads/unassigned
+router.get('/unassigned', async (req, res) => {
+    try {
+        const leads = await Lead.find({ status: 'unassigned' })
+            .populate('category', 'name')
+            .sort({ createdAt: -1 });
+        return res.json(leads);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /admin/leads/:id
+router.get('/:id', async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.id)
+            .populate('category', 'name')
+            .populate('assignedPartnerId', 'companyName email status')
+            .populate('introducerId', 'name email');
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+        return res.json(lead);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /admin/leads/:id - GDPR Hard Delete (Anonymize)
+router.delete('/:id', async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+        
+        // GDPR approach: Anonymize data but keep the record for commission tracking
+        lead.name = 'GDPR Deleted';
+        lead.email = 'deleted@deleted.com';
+        lead.phone = '00000000000';
+        lead.description = 'Data removed per GDPR request';
+        lead.postcode = lead.postcode.substring(0, 3) + ' ***'; // Keep partial postcode for regional stats
+        
+        await lead.save();
+        return res.json({ message: 'Lead personal data has been erased per GDPR' });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /admin/leads
 router.get('/', async (req, res) => {
     try {

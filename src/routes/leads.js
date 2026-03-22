@@ -81,6 +81,24 @@ router.post(
 
                 const referenceId = await generateReferenceId();
 
+                // H-6: Resolve questionText
+                let resolvedAnswers = [];
+                if (answers && answers.length > 0) {
+                    const QualificationQuestion = require('../models/QualificationQuestion');
+                    const qIds = answers.map(a => a.questionId || (a.questionKey ? null : a.questionId)).filter(Boolean);
+                    
+                    let qMap = new Map();
+                    if (qIds.length > 0) {
+                        const questions = await QualificationQuestion.find({ _id: { $in: qIds } });
+                        qMap = new Map(questions.map(q => [q._id.toString(), q.questionText]));
+                    }
+                    
+                    resolvedAnswers = answers.map(a => ({
+                        questionText: a.questionKey || qMap.get(a.questionId?.toString()) || a.questionId || 'Unknown Question',
+                        answer: Array.isArray(a.answerValues) ? a.answerValues.join(', ') : a.answer
+                    }));
+                }
+
                 const lead = await Lead.create({
                     referenceId,
                     name,
@@ -96,15 +114,15 @@ router.post(
                     consentAccepted: consentAccepted === true || consentAccepted === 'true',
                     consentTimestamp: new Date(),
                     formSource: source,
-                    qualificationAnswers: answers || null
+                    qualificationAnswers: resolvedAnswers.length > 0 ? resolvedAnswers : null
                 });
                 leadsCreated.push({ lead, categoryDoc });
             }
 
             // Route all leads independently
             for (const { lead, categoryDoc } of leadsCreated) {
-                // Signature change: findMatchingPartner(categoryDoc, postcode)
-                const partner = await findMatchingPartner(categoryDoc, postcode);
+                // Signature change: findMatchingPartner(categoryDoc, postcode, subservices)
+                const partner = await findMatchingPartner(categoryDoc, postcode, lead.subservices);
 
                 if (partner) {
                     lead.assignedPartnerId = partner._id;
@@ -117,9 +135,13 @@ router.post(
                     lead.outcomeTokenExpiry = expiryDate;
                     await lead.save();
 
-                    dispatchNotifications(lead, partner, categoryDoc).catch((err) =>
-                        console.error('[Notifications] Dispatch error:', err.message)
-                    );
+                    const populatedLead = await Lead.findById(lead._id).populate('subservices', 'name');
+
+                    setImmediate(() => {
+                        dispatchNotifications(populatedLead, partner, categoryDoc).catch((err) =>
+                            console.error('[Notifications] Dispatch error:', err.message)
+                        );
+                    });
                 } else {
                     console.log(`[Routing] No partner found for category=${categoryDoc.name} postcode=${postcode}`);
                     notifyAdminUnassigned(lead).catch((err) =>

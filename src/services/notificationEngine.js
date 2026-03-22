@@ -34,6 +34,11 @@ const getSendPulseToken = async () => {
 // ─── Message Template ─────────────────────────────────────────────────────────
 const buildMessage = (lead, category) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://wisemoveconnect.com';
+    let subservicesText = '';
+    if (lead.subservices && lead.subservices.length > 0) {
+        subservicesText = `\nR&D Subservices Selected:\n` + lead.subservices.map(sub => `  - ${sub.name || sub}`).join('\n') + `\n`;
+    }
+
     return (
         `New WiseMove Connect introduction:\n\n` +
         `Category: ${category.name}\n` +
@@ -42,8 +47,9 @@ const buildMessage = (lead, category) => {
         `Customer Name: ${lead.name}\n` +
         `Customer Phone: ${lead.phone}\n` +
         `Customer Email: ${lead.email}\n` +
-        `Details: ${lead.description || 'N/A'}\n\n` +
-        `Please contact the customer directly. Reply to this message if you need support.\n\n` +
+        `Details: ${lead.description || 'N/A'}\n` +
+        subservicesText +
+        `\nPlease contact the customer directly. Reply to this message if you need support.\n\n` +
         `Update Lead Outcome (7-day link):\n` +
         `${frontendUrl}/outcome/${lead.outcomeToken}`
     );

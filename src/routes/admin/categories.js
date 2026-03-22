@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
  *             required: [name, commissionType, commissionValue]
  *             properties:
  *               name: { type: string }
- *               commissionType: { type: string, enum: [percentage, flat, tiered] }
+ *               commissionType: { type: string, enum: [percentage, fixed, tiered] }
  *               commissionValue: { type: number }
  *               introducerSplit: { type: number, default: 30 }
  *               description: { type: string }
@@ -66,7 +66,7 @@ router.post(
     '/',
     [
         body('name').trim().notEmpty().withMessage('Name is required'),
-        body('commissionType').isIn(['percentage', 'flat', 'tiered']).withMessage('Invalid commission type'),
+        body('commissionType').isIn(['percentage', 'fixed', 'tiered']).withMessage('Invalid commission type'),
         body('commissionValue').isFloat({ min: 0 }).withMessage('Commission value must be >= 0'),
     ],
     validate,

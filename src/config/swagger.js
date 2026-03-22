@@ -11,8 +11,8 @@ const options = {
         },
         servers: [
             {
-                url: 'http://localhost:5000',
-                description: 'Development server',
+                url: process.env.BACKEND_URL || 'http://localhost:5000',
+                description: 'API Server',
             },
         ],
         components: {
