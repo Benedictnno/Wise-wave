@@ -30,12 +30,19 @@ router.get('/stats', async (req, res) => {
         ]);
         const totalRevenue = revenueAgg.length > 0 ? +revenueAgg[0].total.toFixed(2) : 0;
 
+        const payoutAgg = await IntroducerPayout.aggregate([
+            { $match: { payoutStatus: 'pending' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]);
+        const totalPendingPayouts = payoutAgg.length > 0 ? +payoutAgg[0].total.toFixed(2) : 0;
+
         return res.json({
             totalLeads,
             leadsLast30,
             activePartners,
             conversionRate: +conversionRate.toFixed(1),
-            totalRevenue
+            totalRevenue,
+            totalPendingPayouts
         });
     } catch (err) {
         return res.status(500).json({ error: err.message });

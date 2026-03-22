@@ -132,6 +132,7 @@ router.post(
                 categoryId: lead.category._id,
                 commissionType: rule.type,
                 commissionValue: totalCommissionAmount,
+                rdTaxYear: derivedYear,
                 introducerId: lead.introducerId || null,
                 introducerShare: 0,
                 wisemoveShare: totalCommissionAmount,

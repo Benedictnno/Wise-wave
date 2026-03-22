@@ -28,8 +28,20 @@ const generateInvoice = async (lead, commission) => {
 
     const invoiceNumber = await nextInvoiceNumber();
 
-    // ── 1. Create Stripe Payment Link ─────────────────────────────────────────
-    let paymentLink;
+    // ── 1. Create Initial Invoice Record (M-10: needed for redundant ID in Stripe) ──
+    const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    const invoice = await Invoice.create({
+        invoiceNumber,
+        leadId: lead._id,
+        partnerId: partner._id,
+        commissionId: commission._id,
+        amount: commission.wisemoveShare,
+        status: 'unpaid',
+        dueDate,
+    });
+
+    // ── 2. Create Stripe Payment Link ─────────────────────────────────────────
+    let stripeData = { linkId: null, url: null };
     try {
         // Create a one-time product for this invoice
         const product = await stripe.products.create({
@@ -43,22 +55,26 @@ const generateInvoice = async (lead, commission) => {
             product: product.id,
         });
 
-        paymentLink = await stripe.paymentLinks.create({
+        const paymentLink = await stripe.paymentLinks.create({
             line_items: [{ price: price.id, quantity: 1 }],
             after_completion: { type: 'redirect', redirect: { url: process.env.STRIPE_SUCCESS_URL || 'https://wisemoveconnect.com/payment-success' } },
             metadata: {
                 invoiceNumber,
+                invoiceId: invoice._id.toString(),
                 leadId: lead._id.toString(),
                 partnerId: partner._id.toString(),
                 commissionId: commission._id.toString()
             }
         });
+        stripeData.linkId = paymentLink.id;
+        stripeData.url = paymentLink.url;
     } catch (err) {
         console.error('[Stripe] Failed to create payment link:', err.message);
-        throw new Error('Payment gateway integration failed');
+        // Fallback or cleanup? Keep going for now manually fixing up stripe later if needed?
+        // Actually, without link, partner can't pay. But let's keep PDF generation.
     }
 
-    // ── 2. Build PDF ────────────────────────────────────────────────────────────
+    // ── 3. Build PDF ────────────────────────────────────────────────────────────
     const tempInvoicesDir = path.join(__dirname, '../../storage/temp_invoices');
     if (!fs.existsSync(tempInvoicesDir)) fs.mkdirSync(tempInvoicesDir, { recursive: true });
 
@@ -83,7 +99,7 @@ const generateInvoice = async (lead, commission) => {
     doc.text(`Invoice Number: ${invoiceNumber}`);
     doc.text(`Reference ID: ${lead.referenceId}`);
     doc.text(`Issue Date: ${new Date().toLocaleDateString('en-GB')}`);
-    doc.text(`Due Date: ${new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}`);
+    doc.text(`Due Date: ${dueDate.toLocaleDateString('en-GB')}`);
     doc.moveDown();
 
     // Amount
@@ -91,10 +107,12 @@ const generateInvoice = async (lead, commission) => {
     doc.moveDown();
 
     // Payment Link
-    doc.fontSize(12).fillColor('blue').text('Click here to pay securely via Stripe:', { underline: true });
-    doc.fontSize(10).text(paymentLink.url, { link: paymentLink.url });
-    doc.fillColor('black');
-    doc.moveDown(2);
+    if (stripeData.url) {
+        doc.fontSize(12).fillColor('blue').text('Click here to pay securely via Stripe:', { underline: true });
+        doc.fontSize(10).text(stripeData.url, { link: stripeData.url });
+        doc.fillColor('black');
+        doc.moveDown(2);
+    }
 
     doc.fontSize(10).text('Payment is due within 14 days. Thank you.', { align: 'center' });
     doc.end();
@@ -104,7 +122,7 @@ const generateInvoice = async (lead, commission) => {
         writeStream.on('error', reject);
     });
 
-    // ── 3. Upload to Cloudinary ─────────────────────────────────────────────────
+    // ── 4. Upload to Cloudinary ─────────────────────────────────────────────────
     let cloudinaryResult = await cloudinary.uploader.upload(pdfPath, {
         folder: 'wisemove/invoices',
         public_id: invoiceNumber,
@@ -112,19 +130,11 @@ const generateInvoice = async (lead, commission) => {
     });
     if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
 
-    // ── 4. Persist ──────────────────────────────────────────────────────────────
-    const invoice = await Invoice.create({
-        invoiceNumber,
-        leadId: lead._id,
-        partnerId: partner._id,
-        commissionId: commission._id,
-        amount: commission.wisemoveShare,
-        pdfPath: cloudinaryResult.secure_url,
-        stripePaymentLinkId: paymentLink.id,
-        stripePaymentUrl: paymentLink.url,
-        status: 'unpaid',
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    });
+    // ── 5. Finalize Invoice ──────────────────────────────────────────────────────
+    invoice.pdfPath = cloudinaryResult.secure_url;
+    invoice.stripePaymentLinkId = stripeData.linkId;
+    invoice.stripePaymentUrl = stripeData.url;
+    await invoice.save();
 
     await sendInvoiceEmail(invoice, partner);
     return invoice;

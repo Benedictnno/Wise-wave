@@ -107,7 +107,15 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', service: 'WiseMove Connect API', timestamp: new Date().toISOString() });
+    const mongoose = require('mongoose');
+    const dbStatus = mongoose.connection.readyState === 1 ? 'ok' : 'degraded';
+    
+    res.status(dbStatus === 'ok' ? 200 : 503).json({ 
+        status: dbStatus === 'ok' ? 'ok' : 'degraded', 
+        db: dbStatus,
+        service: 'WiseMove Connect API', 
+        timestamp: new Date().toISOString() 
+    });
 });
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ const partnerSchema = new mongoose.Schema(
         preferredContactMethod: { type: String, enum: ['email', 'sms', 'whatsapp'], default: 'email' },
         backupDeliveryMethod: { type: String, enum: ['email', 'sms', 'whatsapp'], default: 'email' },
         categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
-        subservices: [{ type: String }], // Array for R&D sub-categories
+        subservices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subservice' }], // Array for R&D sub-categories
         postcodes: [{ type: String, trim: true, uppercase: true }],
         priority: { type: Number, required: true, default: 10 },
         status: { type: String, enum: ['active', 'inactive'], default: 'active' },
@@ -22,5 +22,7 @@ const partnerSchema = new mongoose.Schema(
 );
 
 partnerSchema.index({ categories: 1, status: 1, priority: 1 });
+partnerSchema.index({ postcodes: 1, status: 1 }); // L-4 fix
+partnerSchema.index({ subservices: 1 }); // L-11 fix
 
 module.exports = mongoose.model('Partner', partnerSchema);

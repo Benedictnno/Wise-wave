@@ -11,10 +11,6 @@ const introducerSchema = new mongoose.Schema({
         default: () => crypto.randomBytes(16).toString('hex'),
     },
     isActive: { type: Boolean, default: true },
-    // Rolling 12-month lead count — used to calculate tiered introducer split.
-    // Updated atomically each time a lead is attributed to this introducer.
-    leadsThisMonth: { type: Number, default: 0 },
-    leadsMonthReset: { type: Date, default: () => new Date() },
     createdAt: { type: Date, default: Date.now },
 });
 

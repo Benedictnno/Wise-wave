@@ -61,6 +61,10 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
 
         // Generate Invoice for the FULL commission value (WiseMove's primary collectable)
         const invoice = await generateInvoice(lead, commission);
+        lead.invoiceId = invoice ? invoice._id : null;
+        lead.paymentStatus = invoice ? 'invoiced' : 'not_invoiced';
+        await lead.save();
+
         return { partnerResponse, lead, commission, invoice };
     }
 

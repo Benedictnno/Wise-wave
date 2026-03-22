@@ -19,6 +19,21 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /admin/exclusivity/:id
+ */
+router.get('/:id', async (req, res) => {
+    try {
+        const record = await PostcodeExclusivity.findById(req.params.id)
+            .populate('partnerId', 'name email companyName')
+            .populate('categoryId', 'name externalId');
+        if (!record) return res.status(404).json({ error: 'Record not found' });
+        return res.json(record);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * POST /admin/exclusivity
  * Create a new exclusivity record
  */

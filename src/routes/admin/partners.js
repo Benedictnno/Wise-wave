@@ -17,6 +17,51 @@ router.get('/', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/partners/{id}:
+ *   get:
+ *     summary: Get single partner details
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id', async (req, res) => {
+    try {
+        const partner = await Partner.findById(req.params.id)
+            .populate('categories', 'name externalId')
+            .populate('subservices', 'name slug');
+        if (!partner) return res.status(404).json({ error: 'Partner not found' });
+        return res.json(partner);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * @openapi
+ * /admin/partners/{id}:
+ *   delete:
+ *     summary: Permanently delete a partner
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/:id', async (req, res) => {
+    try {
+        const partner = await Partner.findByIdAndDelete(req.params.id);
+        if (!partner) return res.status(404).json({ error: 'Partner not found' });
+        
+        // Cleanup PostcodeExclusivity
+        const PostcodeExclusivity = require('../../models/PostcodeExclusivity');
+        await PostcodeExclusivity.deleteMany({ partnerId: req.params.id });
+        
+        return res.json({ message: 'Partner deleted successfully' });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /admin/partners
 router.post(
     '/',

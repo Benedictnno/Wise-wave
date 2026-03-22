@@ -23,7 +23,17 @@ const generateMonthlyReport = async () => {
         // Fix: correctly filter for really unpaid (not failed or reversed)
         const unpaidInvoices = await Invoice.countDocuments({ status: 'unpaid' });
 
-        return { totalLeads, successfulDeals, revenue, unpaidInvoices };
+        let pendingPayouts = 0;
+        try {
+            const IntroducerPayout = require('../models/IntroducerPayout');
+            const payoutAgg = await IntroducerPayout.aggregate([
+                { $match: { payoutStatus: 'pending' } },
+                { $group: { _id: null, total: { $sum: '$amount' } } },
+            ]);
+            pendingPayouts = payoutAgg[0]?.total ?? 0;
+        } catch { /* if model not ready */ }
+
+        return { totalLeads, successfulDeals, revenue, unpaidInvoices, pendingPayouts };
     } catch (err) {
         console.error('[Report] Error:', err.message);
         return null;
@@ -43,6 +53,7 @@ const sendReportEmail = async (reportData) => {
                 <li><strong>Successful Deals:</strong> ${reportData.successfulDeals}</li>
                 <li><strong>Actual Revenue (Paid):</strong> £${reportData.revenue.toFixed(2)}</li>
                 <li><strong>Unpaid Invoices:</strong> ${reportData.unpaidInvoices}</li>
+                <li><strong>Pending Introducer Payouts:</strong> £${reportData.pendingPayouts.toFixed(2)}</li>
             </ul>
         `;
 
@@ -130,17 +141,6 @@ const recoverPendingDeliveries = async () => {
 };
 
 const initCronJobs = () => {
-    // End of month reset for Introducer volumes — 1st of every month at 00:00
-    cron.schedule('0 0 1 * *', async () => {
-        try {
-            const Introducer = require('../models/Introducer');
-            await Introducer.updateMany({}, { leadsThisMonth: 0 });
-            console.log('[Cron] Reset Introducer monthly lead counts');
-        } catch (err) {
-            console.error('[Cron] Error resetting introducer counts:', err.message);
-        }
-    });
-
     // Monthly report — 1st of every month at 08:00
     cron.schedule('0 8 1 * *', async () => {
         const data = await generateMonthlyReport();

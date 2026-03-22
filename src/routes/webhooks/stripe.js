@@ -29,11 +29,48 @@ router.post('/', async (req, res) => {
         console.warn(`[Stripe Webhook] Payment failed for Intent: ${paymentIntent.id}`);
     } else if (event.type === 'charge.refunded') {
         const charge = event.data.object;
-        console.log(`[Stripe Webhook] Charge refunded: ${charge.id}`);
+        await handleChargeRefunded(charge);
     }
 
     res.json({ received: true });
 });
+
+const handleChargeRefunded = async (charge) => {
+    let invoiceNumber = charge.metadata?.invoiceNumber;
+
+    if (!invoiceNumber && charge.payment_intent) {
+        try {
+            // Look up the session that created this payment intent to find metadata
+            const sessions = await stripe.checkout.sessions.list({
+                payment_intent: charge.payment_intent,
+                limit: 1,
+            });
+            invoiceNumber = sessions.data[0]?.metadata?.invoiceNumber;
+        } catch (err) {
+            console.error('[Stripe Webhook] Error fetching session for refund:', err.message);
+        }
+    }
+
+    if (!invoiceNumber) {
+        console.warn(`[Stripe Webhook] charge.refunded (${charge.id}) — could not resolve invoiceNumber`);
+        return;
+    }
+
+    const invoice = await Invoice.findOne({ invoiceNumber }).populate('commissionId');
+    if (invoice && invoice.status !== 'reversed') {
+        invoice.status = 'reversed';
+        await invoice.save();
+
+        if (invoice.commissionId) {
+            const commission = await Commission.findById(invoice.commissionId);
+            if (commission) {
+                commission.commissionStatus = 'reversed';
+                await commission.save();
+            }
+        }
+        console.log(`[Stripe Webhook] Invoice ${invoiceNumber} marked as REVERSED due to refund`);
+    }
+};
 
 const handlePaymentSucceeded = async (invoiceNumber) => {
     if (!invoiceNumber) return;
@@ -57,6 +94,13 @@ const handlePaymentSucceeded = async (invoiceNumber) => {
             await applySplit(commission);
         }
     }
+
+    // Update Lead paymentStatus (H-6)
+    const Lead = require('../../models/Lead');
+    await Lead.findOneAndUpdate(
+        { _id: invoice.leadId },
+        { paymentStatus: 'paid' }
+    );
     
     console.log(`[Stripe Webhook] Invoice ${invoiceNumber} marked as PAID`);
 };

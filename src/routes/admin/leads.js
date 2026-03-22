@@ -13,10 +13,15 @@ router.use(authMiddleware);
 // GET /admin/leads/unassigned
 router.get('/unassigned', async (req, res) => {
     try {
+        const { page = 1, limit = 50 } = req.query;
         const leads = await Lead.find({ status: 'unassigned' })
             .populate('category', 'name')
-            .sort({ createdAt: -1 });
-        return res.json(leads);
+            .sort({ createdAt: -1 })
+            .skip((Number(page) - 1) * Number(limit))
+            .limit(Number(limit));
+        
+        const total = await Lead.countDocuments({ status: 'unassigned' });
+        return res.json({ leads, total, page: Number(page), limit: Number(limit) });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -107,17 +112,24 @@ router.patch('/:id/outcome',
 // GET /admin/leads
 router.get('/', async (req, res) => {
     try {
-        const { status, category, page = 1, limit = 50 } = req.query;
+        const { status, category, outcome, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
         const filter = {};
         if (status) filter.status = status;
         if (category) filter.category = category;
+        if (outcome) filter.outcome = outcome;
+        
+        if (dateFrom || dateTo) {
+            filter.createdAt = {};
+            if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+            if (dateTo) filter.createdAt.$lte = new Date(dateTo);
+        }
 
         const leads = await Lead.find(filter)
             .populate('category', 'name')
             .populate('assignedPartnerId', 'companyName email')
             .populate('introducerId', 'name email')
             .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
+            .skip((Number(page) - 1) * Number(limit))
             .limit(Number(limit));
 
         const total = await Lead.countDocuments(filter);
@@ -175,7 +187,9 @@ router.patch(
  */
 router.post('/:id/resend', async (req, res) => {
     try {
-        const lead = await Lead.findById(req.params.id).populate('category');
+        const lead = await Lead.findById(req.params.id)
+            .populate('category')
+            .populate('subservices', 'name');
         if (!lead || !lead.assignedPartnerId) {
             return res.status(400).json({ error: 'Lead must be assigned to a partner to resend' });
         }

@@ -148,6 +148,9 @@ router.post(
 
             const total = calculateCommission(rule, Number(partnerFee), rdTaxYear ? Number(rdTaxYear) : null);
 
+            const { calculateShares } = require('../../services/commissionService');
+            const { introducerShare, wisemoveShare } = calculateShares(total, !!lead.introducerId);
+
             const commission = await Commission.create({
                 leadId,
                 partnerId,
@@ -155,8 +158,8 @@ router.post(
                 commissionType: rule.type,
                 commissionValue: total,
                 introducerId: lead.introducerId || null,
-                introducerShare: 0,
-                wisemoveShare: total,
+                introducerShare,
+                wisemoveShare,
                 rdTaxYear: rdTaxYear || null,
                 notes: notes || 'Admin Manual Creation',
                 commissionStatus: 'unpaid'
