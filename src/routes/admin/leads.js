@@ -44,10 +44,12 @@ router.delete('/:id', async (req, res) => {
         
         // GDPR approach: Anonymize data but keep the record for commission tracking
         lead.name = 'GDPR Deleted';
-        lead.email = 'deleted@deleted.com';
+        lead.email = 'deleted@deleted.invalid';
         lead.phone = '00000000000';
-        lead.description = 'Data removed per GDPR request';
-        lead.postcode = lead.postcode.substring(0, 3) + ' ***'; // Keep partial postcode for regional stats
+        lead.companyName = '';
+        lead.description = '[Erased per GDPR request]';
+        lead.qualificationAnswers = [];
+        lead.postcode = lead.postcode.substring(0, 4).trim() + '***';
         
         await lead.save();
         return res.json({ message: 'Lead personal data has been erased per GDPR' });
@@ -55,6 +57,52 @@ router.delete('/:id', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
+
+// PATCH /admin/leads/:id/notes
+router.patch('/:id/notes',
+    [body('adminNotes').trim().notEmpty().isLength({ max: 2000 })],
+    validate,
+    async (req, res) => {
+        try {
+            const lead = await Lead.findByIdAndUpdate(
+                req.params.id,
+                { adminNotes: req.body.adminNotes },
+                { new: true }
+            );
+            if (!lead) return res.status(404).json({ error: 'Lead not found' });
+            return res.json(lead);
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// PATCH /admin/leads/:id/outcome
+router.patch('/:id/outcome',
+    [
+        body('outcome').isIn(['won', 'lost', 'not_suitable']),
+        body('partnerFee').optional().isFloat({ min: 0 }),
+        body('notes').optional().trim(),
+    ],
+    validate,
+    async (req, res) => {
+        try {
+            const lead = await Lead.findById(req.params.id).populate('category');
+            if (!lead) return res.status(404).json({ error: 'Lead not found' });
+            
+            const { processPartnerResponse } = require('../../services/partnerResponseService');
+            const result = await processPartnerResponse(
+                lead, 
+                req.body.outcome, 
+                req.body.partnerFee,
+                req.body.notes || 'Admin manual conversion'
+            );
+            return res.json({ message: 'Outcome set', data: result });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+);
 
 // GET /admin/leads
 router.get('/', async (req, res) => {

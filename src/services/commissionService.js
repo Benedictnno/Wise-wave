@@ -3,16 +3,6 @@ const IntroducerPayout = require('../models/IntroducerPayout');
 const Invoice = require('../models/Invoice');
 
 /**
- * Get the tiered split percentage based on an introducer's monthly lead volume.
- */
-const getTieredSplitPercent = (monthlyCount) => {
-    if (monthlyCount >= 16) return 35;
-    if (monthlyCount >= 11) return 34;
-    if (monthlyCount >= 6) return 32;
-    return 30; // base (1-5 leads)
-};
-
-/**
  * Basic commission calculation based on rule type.
  */
 const calculateCommission = (rule, partnerFee = 0) => {
@@ -40,8 +30,8 @@ const applySplit = async (commission) => {
     const introducer = await Introducer.findById(commission.introducerId);
     if (!introducer) return;
 
-    // Use current month's lead volume to determine split tier
-    const splitPercent = getTieredSplitPercent(introducer.leadsThisMonth || 1);
+    // Spec dictates a fixed 30/70 split.
+    const splitPercent = 30;
     
     // 2. Calculate £ amount for the introducer share
     const introducerShareAmount = Number((commission.commissionValue * (splitPercent / 100)).toFixed(2));
@@ -67,4 +57,4 @@ const applySplit = async (commission) => {
     console.log(`[Commission Service] Applied async split and created payout record for INV: ${invoice.invoiceNumber}`);
 };
 
-module.exports = { applySplit, getTieredSplitPercent, calculateCommission };
+module.exports = { applySplit, calculateCommission };

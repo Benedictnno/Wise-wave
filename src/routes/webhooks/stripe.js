@@ -21,41 +21,44 @@ router.post('/', async (req, res) => {
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        
-        // Find invoice using metadata
-        const invoiceNumber = session.metadata?.invoiceNumber;
-        if (invoiceNumber) {
-            const invoice = await Invoice.findOne({ invoiceNumber }).populate('commissionId');
-            if (invoice && invoice.status !== 'paid') {
-                invoice.status = 'paid';
-                invoice.paidAt = new Date();
-                await invoice.save();
-
-                // Update commission status
-                if (invoice.commissionId) {
-                    const commission = await Commission.findById(invoice.commissionId);
-                    if (commission) {
-                        commission.commissionStatus = 'paid';
-                        await commission.save();
-                        
-                        // PHASE 4: Apply potential splits (handled in commissionService.applySplit)
-                        await applySplit(commission);
-                    }
-                }
-                
-                console.log(`[Stripe Webhook] Invoice ${invoiceNumber} marked as PAID`);
-            }
+        if (session.payment_status === 'paid') {
+            await handlePaymentSucceeded(session.metadata?.invoiceNumber);
         }
     } else if (event.type === 'payment_intent.payment_failed') {
-        const intent = event.data.object;
-        console.log(`[Stripe Webhook] Payment failed for intent: ${intent.id}`);
-        // Optional: Notify partner or admin
+        const paymentIntent = event.data.object;
+        console.warn(`[Stripe Webhook] Payment failed for Intent: ${paymentIntent.id}`);
     } else if (event.type === 'charge.refunded') {
         const charge = event.data.object;
-        // Optional: Handle partial or full refunds
+        console.log(`[Stripe Webhook] Charge refunded: ${charge.id}`);
     }
 
     res.json({ received: true });
 });
+
+const handlePaymentSucceeded = async (invoiceNumber) => {
+    if (!invoiceNumber) return;
+    
+    const invoice = await Invoice.findOne({ invoiceNumber }).populate('commissionId');
+    if (!invoice || invoice.status === 'paid') return;
+
+    invoice.status = 'paid';
+    invoice.paidAt = new Date();
+    await invoice.save();
+
+    // Update commission status
+    if (invoice.commissionId) {
+        const commission = await Commission.findById(invoice.commissionId);
+        if (commission) {
+            commission.commissionStatus = 'paid';
+            await commission.save();
+            
+            // Apply potential splits (handled in commissionService.applySplit)
+            const { applySplit } = require('../../services/commissionService');
+            await applySplit(commission);
+        }
+    }
+    
+    console.log(`[Stripe Webhook] Invoice ${invoiceNumber} marked as PAID`);
+};
 
 module.exports = router;

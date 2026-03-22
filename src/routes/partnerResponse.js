@@ -93,8 +93,9 @@ router.post(
             const { revenueAmount, revenueDate, yearNumber } = req.body;
             const lead = await Lead.findById(req.params.id).populate('category', 'name externalId commissionType _id');
             if (!lead) return res.status(404).json({ error: 'Lead not found' });
-            if (lead.category.externalId !== 'BS-001') {
-                return res.status(400).json({ error: 'Revenue triggers only apply to R&D Tax Credits' });
+            const category = lead.category;
+            if (!category || category.externalId !== 'svc_025') {
+                return res.status(400).json({ error: 'Revenue reporting is only applicable to R&D Tax Services (svc_025)' });
             }
 
             const { calculateCommission } = require('../services/commissionService');
@@ -105,8 +106,22 @@ router.post(
             const rule = await CommissionRule.findOne({ categoryId: lead.category._id });
             if (!rule) return res.status(400).json({ error: 'No commission rule configuration for R&D.' });
 
+            // Derive year server-side from previous submissions
+            const previousSubmissions = await Commission.countDocuments({
+                leadId: lead._id,
+                commissionType: 'tiered', // R&D uses tiered
+            });
+            const derivedYear = previousSubmissions + 1;
+
+            // Enforce year cap (Spec: Year 3+ is 0%)
+            if (derivedYear > 2) {
+                return res.status(200).json({
+                    message: 'Commission period ended after Year 2. No invoice will be generated.',
+                });
+            }
+
             lead.partnerFeeTotal = (lead.partnerFeeTotal || 0) + revenueAmount;
-            lead.rdTaxYear = yearNumber || 1;
+            lead.rdTaxYear = derivedYear;
             await lead.save();
 
             const totalCommissionAmount = calculateCommission(rule, revenueAmount, lead.rdTaxYear);

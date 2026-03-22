@@ -78,4 +78,58 @@ router.patch(
     }
 );
 
+/**
+ * @openapi
+ * /admin/partners/{id}/subservices:
+ *   get:
+ *     summary: View partner subservices (R&D)
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id/subservices', async (req, res) => {
+    try {
+        const partner = await Partner.findById(req.params.id).populate('subservices', 'name slug');
+        if (!partner) return res.status(404).json({ error: 'Not found' });
+        return res.json(partner.subservices);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * @openapi
+ * /admin/partners/{id}/subservices:
+ *   put:
+ *     summary: Edit partner subservices
+ *     tags: [Admin Partners]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:id/subservices',
+    [body('subservices').isArray()],
+    validate,
+    async (req, res) => {
+        try {
+            const Subservice = require('../../models/Subservice');
+            const valid = await Subservice.find({ _id: { $in: req.body.subservices } });
+            
+            if (valid.length !== req.body.subservices.length) {
+                return res.status(400).json({ error: 'One or more subservice IDs are invalid' });
+            }
+            
+            const partner = await Partner.findByIdAndUpdate(
+                req.params.id,
+                { subservices: req.body.subservices },
+                { new: true }
+            ).populate('subservices', 'name slug');
+            
+            if (!partner) return res.status(404).json({ error: 'Not found' });
+            return res.json(partner);
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+);
+
 module.exports = router;

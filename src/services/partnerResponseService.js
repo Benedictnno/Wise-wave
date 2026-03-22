@@ -28,8 +28,8 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         const rule = await CommissionRule.findOne({ categoryId: lead.category._id });
         if (!rule) throw new Error('Commission rule not found for this category');
 
-        // H-1: Special case for R&D (BS-001) where revenue is triggered later
-        if (lead.category.externalId === 'BS-001') {
+        // H-1: Special case for R&D (svc_025) where revenue is triggered later
+        if (lead.category.externalId === 'svc_025') {
             lead.partnerFeeTotal = partnerFee || 0;
             await lead.save();
             return { partnerResponse, lead, message: 'Outcome recorded. Please submit revenue details when engagement completes.' };

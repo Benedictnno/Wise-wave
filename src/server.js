@@ -1,3 +1,4 @@
+process.env.TZ = 'UTC';
 require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
@@ -66,6 +67,12 @@ const adminLimiter = rateLimit({
     message: { error: 'Too many requests — please try again later' },
 });
 
+const outcomeLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many requests — please try again later' },
+});
+
 // --- Stripe Webhook (Raw Body Needed) ---
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoute);
 
@@ -77,7 +84,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ─── Public Routes ────────────────────────────────────────────────────────────
 app.use('/api/leads', leadLimiter, leadsRoute);
 app.use('/api/partners', leadLimiter, partnersRoute);
-app.use('/api/partner-response', require('./routes/partnerResponse'));
+app.use('/api/partner-response', outcomeLimiter, require('./routes/partnerResponse'));
 app.use('/api/categories', categoriesRoute);
 app.use('/api/introducers', introducersRoute);
 app.use('/api/qualify', qualifyRoute);

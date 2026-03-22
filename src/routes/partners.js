@@ -95,7 +95,7 @@ router.post(
             } = req.body;
 
             // Require explicit agreement
-            if (!agreementAccepted) {
+            if (!agreementAccepted || String(agreementAccepted) === 'false') {
                 return res.status(400).json({ error: 'You must accept the terms to register as a partner' });
             }
 

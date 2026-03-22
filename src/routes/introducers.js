@@ -29,9 +29,18 @@ router.get('/:token/stats', async (req, res) => {
             return res.status(404).json({ error: 'Invalid or expired introducer link' });
         }
 
+        const startOfMonth = new Date();
+        startOfMonth.setUTCDate(1);
+        startOfMonth.setUTCHours(0, 0, 0, 0);
+
+        const monthlyLeads = await Lead.countDocuments({
+            introducerId: introducer._id,
+            createdAt: { $gte: startOfMonth },
+        });
+
         const stats = {
-            monthlyLeads: introducer.leadsThisMonth,
-            currentTierShare: Introducer.getTieredSplitPercent(introducer.leadsThisMonth),
+            monthlyLeads: monthlyLeads,
+            introducerSplitPercent: 30, // always flat 30% per spec
         };
 
         const thirtyDaysAgo = new Date();
