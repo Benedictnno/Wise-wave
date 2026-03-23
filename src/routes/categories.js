@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
         const response = categories.map((c) => ({
             _id: c._id,
             name: c.name,
-            slug: c.slug,
+            slug: c.serviceSlug,
             commissionType: c.commissionType,
             description: c.description,
             isRegulated: c.isRegulated,
@@ -96,7 +96,7 @@ router.get('/:identifier', async (req, res) => {
         if (/^[0-9a-fA-F]{24}$/.test(identifier)) {
             query._id = identifier;
         } else {
-            query.slug = identifier;
+            query.serviceSlug = identifier;
         }
 
         const category = await Category.findOne(query);
@@ -108,7 +108,7 @@ router.get('/:identifier', async (req, res) => {
         return res.status(200).json({
             _id: category._id,
             name: category.name,
-            slug: category.slug,
+            slug: category.serviceSlug,
             commissionType: category.commissionType,
             description: category.description,
             isRegulated: category.isRegulated,
