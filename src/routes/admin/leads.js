@@ -54,7 +54,7 @@ router.delete('/:id', async (req, res) => {
         lead.companyName = '';
         lead.description = '[Erased per GDPR request]';
         lead.qualificationAnswers = [];
-        lead.postcode = lead.postcode.substring(0, 4).trim() + '***';
+        lead.postcode = 'REDACTED';
         
         await lead.save();
         return res.json({ message: 'Lead personal data has been erased per GDPR' });
@@ -114,9 +114,9 @@ router.get('/', async (req, res) => {
     try {
         const { status, category, outcome, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
         const filter = {};
-        if (status) filter.status = status;
-        if (category) filter.category = category;
-        if (outcome) filter.outcome = outcome;
+        if (typeof status === 'string') filter.status = status;
+        if (typeof category === 'string') filter.category = category;
+        if (typeof outcome === 'string') filter.outcome = outcome;
         
         if (dateFrom || dateTo) {
             filter.createdAt = {};
@@ -205,20 +205,5 @@ router.post('/:id/resend', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
-
-// PATCH /admin/leads/:id/notes
-router.patch(
-    '/:id/notes',
-    [body('adminNotes').trim().notEmpty()],
-    validate,
-    async (req, res) => {
-        try {
-            const lead = await Lead.findByIdAndUpdate(req.params.id, { adminNotes: req.body.adminNotes }, { new: true });
-            return res.json(lead);
-        } catch (err) {
-            return res.status(500).json({ error: err.message });
-        }
-    }
-);
 
 module.exports = router;

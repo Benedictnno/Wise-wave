@@ -48,23 +48,32 @@ router.post(
     async (req, res) => {
         try {
             const { outcome, partnerFee, notes } = req.body;
-            const lead = await Lead.findOne({ outcomeToken: req.params.token }).populate('category', 'name externalId commissionType _id');
+            // Atomically check and claim by setting the outcome to prevent race conditions
+            const lead = await Lead.findOneAndUpdate(
+                { outcomeToken: req.params.token, outcome: null },
+                { outcome: outcome },
+                { new: false } // Gives us the document as it was before the update
+            ).populate('category', 'name externalId commissionType _id');
             
-            if (!lead) return res.status(404).json({ error: 'Invalid or missing outcome link' });
+            if (!lead) {
+                // Differentiate between an invalid token and one that was just consumed by a concurrent request
+                const alreadyProcessed = await Lead.findOne({ outcomeToken: req.params.token });
+                if (alreadyProcessed && alreadyProcessed.outcome !== null) {
+                    return res.status(400).json({ error: 'Outcome has already been reported for this lead' });
+                }
+                return res.status(404).json({ error: 'Invalid or missing outcome link' });
+            }
             
             // Enforce 7-day token expiry
             if (lead.outcomeTokenExpiry && new Date() > lead.outcomeTokenExpiry) {
+                await Lead.updateOne({ _id: lead._id }, { outcome: null }); // Rollback claim
                 return res.status(410).json({ error: 'This secure outcome link has expired (7-day window exceeded).' });
             }
 
-            if (lead.outcome) return res.status(400).json({ error: 'Outcome has already been reported for this lead' });
-
             const result = await processPartnerResponse(lead, outcome, partnerFee, notes);
             
-            // C-4: One-time use link
-            lead.outcomeToken = null;
-            lead.outcomeTokenExpiry = null;
-            await lead.save();
+            // clear the one-time link fields
+            await Lead.updateOne({ _id: lead._id }, { outcomeToken: null, outcomeTokenExpiry: null });
 
             return res.status(200).json({ message: 'Outcome recorded successfully', data: result });
         } catch (err) {

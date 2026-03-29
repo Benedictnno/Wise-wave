@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const PostcodeExclusivity = require('../../models/PostcodeExclusivity');
 const { body, validationResult } = require('express-validator');
+const authMiddleware = require('../../middleware/auth');
+
+router.use(authMiddleware);
 
 /**
  * GET /admin/exclusivity

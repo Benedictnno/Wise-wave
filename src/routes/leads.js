@@ -90,7 +90,8 @@ router.post(
             }
 
             // 3. Generate Reference ID
-            const referenceId = `WM-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            const crypto = require('crypto');
+            const referenceId = `WM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
             // 4. Partner Matching
             const partner = await findMatchingPartner(category, postcode, subservices);

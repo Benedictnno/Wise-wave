@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const IntroducerPayout = require('../../models/IntroducerPayout');
+const authMiddleware = require('../../middleware/auth');
+
+router.use(authMiddleware);
 
 /**
  * GET /admin/payouts

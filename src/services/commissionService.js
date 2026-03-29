@@ -67,5 +67,3 @@ const applySplit = async (commission) => {
 };
 
 module.exports = { applySplit, calculateCommission, calculateShares };
-
-module.exports = { applySplit, calculateCommission };

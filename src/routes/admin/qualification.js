@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const QualificationQuestion = require('../../models/QualificationQuestion');
 const { body, validationResult } = require('express-validator');
+const authMiddleware = require('../../middleware/auth');
+
+router.use(authMiddleware);
 
 /**
  * GET /admin/qualification
@@ -21,7 +24,9 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
     try {
-        const question = await QualificationQuestion.create(req.body);
+        const { questionKey, text, type, options, priority, pillarId, isActive } = req.body;
+        const questionData = { questionKey, text, type, options, priority, pillarId, isActive };
+        const question = await QualificationQuestion.create(questionData);
         return res.status(201).json(question);
     } catch (err) {
         return res.status(500).json({ error: err.message });

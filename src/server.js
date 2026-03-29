@@ -36,8 +36,28 @@ connectDB();
 const { initCronJobs } = require('./services/reportService');
 initCronJobs();
 
+// ─── Startup Security Checks ──────────────────────────────────────────────────
+if (!process.env.JWT_SECRET) {
+    console.error('[FATAL] JWT_SECRET is not defined. Server refusing to start.');
+    process.exit(1);
+}
+
 // ─── Security Middleware ──────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "res.cloudinary.com"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+        },
+    }
+}));
 app.use(cors({
     origin: (origin, callback) => {
         const allowed = process.env.ALLOWED_ORIGINS || '*';
@@ -79,7 +99,12 @@ app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), strip
 // ─── Body Parsing & Logging ───────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+morgan.token('auth-masked', (req) => req.headers.authorization ? 'REDACTED' : 'NONE');
+const logFormat = process.env.NODE_ENV === 'production' 
+    ? ':remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent" Auth-:auth-masked' 
+    : 'dev';
+app.use(morgan(logFormat));
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
 app.use('/api/leads', leadLimiter, leadsRoute);

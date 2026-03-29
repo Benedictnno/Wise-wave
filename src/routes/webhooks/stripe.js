@@ -36,11 +36,11 @@ router.post('/', async (req, res) => {
 });
 
 const handleChargeRefunded = async (charge) => {
-    let invoiceNumber = charge.metadata?.invoiceNumber;
+    let invoiceNumber = null;
 
-    if (!invoiceNumber && charge.payment_intent) {
+    if (charge.payment_intent) {
         try {
-            // Look up the session that created this payment intent to find metadata
+            // Look up the session that created this payment intent to find metadata securely
             const sessions = await stripe.checkout.sessions.list({
                 payment_intent: charge.payment_intent,
                 limit: 1,

@@ -32,12 +32,16 @@ const getSendPulseToken = async () => {
 };
 
 // ─── Message Template ─────────────────────────────────────────────────────────
-const buildMessage = (lead, category) => {
+const buildMessage = (lead, category, method) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://wisemoveconnect.com';
     let subservicesText = '';
     if (lead.subservices && lead.subservices.length > 0) {
         subservicesText = `\nR&D Subservices Selected:\n` + lead.subservices.map(sub => `  - ${sub.name || sub}`).join('\n') + `\n`;
     }
+
+    const outcomeLinkText = method === 'email' 
+        ? `Update Lead Outcome (7-day link):\n${frontendUrl}/outcome/${lead.outcomeToken}`
+        : `Please check your registered email for the secure link to update the outcome.`;
 
     return (
         `New WiseMove Connect introduction:\n\n` +
@@ -50,8 +54,7 @@ const buildMessage = (lead, category) => {
         `Details: ${lead.description || 'N/A'}\n` +
         subservicesText +
         `\nPlease contact the customer directly. Reply to this message if you need support.\n\n` +
-        `Update Lead Outcome (7-day link):\n` +
-        `${frontendUrl}/outcome/${lead.outcomeToken}`
+        outcomeLinkText
     );
 };
 
@@ -99,7 +102,7 @@ const deliverByWhatsApp = async (partner, body) => {
 // ─── Dispatch Engine with Retry Logic ─────────────────────────────────────────
 const dispatchNotifications = async (lead, partner, category, attempt = 1) => {
     const method = (attempt === 1) ? partner.preferredContactMethod : partner.backupDeliveryMethod || 'email';
-    const message = buildMessage(lead, category);
+    const message = buildMessage(lead, category, method);
     
     let success = false;
     try {
