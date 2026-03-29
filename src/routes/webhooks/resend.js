@@ -1,17 +1,35 @@
 const express = require('express');
 const router = express.Router();
 
-// M-9: Stub for inbound Resend webhooks
+// M-9: Inbound Resend webhooks
+const { Webhook } = require('svix');
+
 router.post('/inbound', async (req, res) => {
     try {
-        // Resend sends a webhook payload containing the email details.
-        // We will forward the message to the ADMIN_EMAIL so support can respond.
-        console.log('[Resend Webhook] Inbound email received');
+        const payloadString = req.body.toString();
+        const svixId = req.headers['svix-id'];
+        const svixTimestamp = req.headers['svix-timestamp'];
+        const svixSignature = req.headers['svix-signature'];
 
-        // Note: For this to work in production, you must verify the signature
-        // of the incoming webhook from Resend to ensure authenticity.
+        if (!svixId || !svixTimestamp || !svixSignature) {
+            return res.status(400).send('Missing Svix headers');
+        }
 
-        const payload = req.body;
+        const wh = new Webhook(process.env.RESEND_WEBHOOK_SECRET || 'fallback_for_testing_purposes');
+        let payload;
+        try {
+            payload = wh.verify(payloadString, {
+                'svix-id': svixId,
+                'svix-timestamp': svixTimestamp,
+                'svix-signature': svixSignature
+            });
+        } catch (err) {
+            console.error('[Resend Webhook] Signature verification failed');
+            return res.status(400).send('Invalid signature');
+        }
+
+        console.log('[Resend Webhook] Inbound email received and verified');
+
         const apiKey = process.env.RESEND_API_KEY;
         const adminEmail = process.env.ADMIN_EMAIL;
 
@@ -33,7 +51,7 @@ router.post('/inbound', async (req, res) => {
         res.status(200).send('OK');
     } catch (err) {
         console.error('[Resend Webhook Error]', err.message);
-        res.status(500).send('Webhook Error');
+        res.status(500).send('Internal Error');
     }
 });
 

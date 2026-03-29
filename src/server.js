@@ -25,6 +25,7 @@ const adminQualificationRoute = require('./routes/admin/qualification');
 const qualifyRoute = require('./routes/qualify');
 const subservicesRoute = require('./routes/subservices');
 const stripeWebhookRoute = require('./routes/webhooks/stripe');
+const resendWebhookRoute = require('./routes/webhooks/resend');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
@@ -93,8 +94,9 @@ const outcomeLimiter = rateLimit({
     message: { error: 'Too many requests — please try again later' },
 });
 
-// --- Stripe Webhook (Raw Body Needed) ---
+// --- Webhooks (Raw Body Needed for validation) ---
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoute);
+app.use('/api/webhooks/resend', express.raw({ type: 'application/json' }), resendWebhookRoute);
 
 // ─── Body Parsing & Logging ───────────────────────────────────────────────────
 app.use(express.json());
@@ -123,8 +125,8 @@ app.use('/admin/commissions', adminLimiter, adminCommissionsRoute);
 app.use('/admin/reports', adminLimiter, adminReportsRoute);
 app.use('/admin/categories', adminLimiter, adminCategoriesRoute);
 app.use('/admin/invoices', adminLimiter, adminInvoicesRoute);
-app.use('/admin/exclusivity', adminExclusivityRoute);
-app.use('/admin/payouts', adminPayoutsRoute);
+app.use('/admin/exclusivity', adminLimiter, adminExclusivityRoute);
+app.use('/admin/payouts', adminLimiter, adminPayoutsRoute);
 app.use('/admin/qualification', adminQualificationRoute);
 
 // ─── API Documentation ────────────────────────────────────────────────────────

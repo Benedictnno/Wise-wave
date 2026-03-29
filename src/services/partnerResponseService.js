@@ -31,8 +31,10 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         // H-1: Special case for R&D (svc_025) where revenue is triggered later
         if (lead.category.externalId === 'svc_025') {
             lead.partnerFeeTotal = partnerFee || 0;
+            const { v4: uuidv4 } = require('uuid');
+            lead.revenueToken = lead.revenueToken || uuidv4();
             await lead.save();
-            return { partnerResponse, lead, message: 'Outcome recorded. Please submit revenue details when engagement completes.' };
+            return { partnerResponse, lead, message: 'Outcome recorded. Please submit revenue details using your unique tracking link when engagement completes.' };
         }
 
         // Validations

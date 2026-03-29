@@ -85,12 +85,12 @@ router.post(
 
 /**
  * @openapi
- * /api/partner-response/{id}/revenue:
+ * /api/partner-response/{revenueToken}/revenue:
  *   post:
  *     summary: Submit R&D revenue later, triggering calculation and invoice.
  */
 router.post(
-    '/:id/revenue',
+    '/:revenueToken/revenue',
     [
         body('revenueAmount').isFloat({ min: 1 }).withMessage('Revenue amount must be greater than 0'),
         body('revenueDate').isISO8601().withMessage('Valid date is required'),
@@ -100,8 +100,8 @@ router.post(
     async (req, res) => {
         try {
             const { revenueAmount, revenueDate, yearNumber } = req.body;
-            const lead = await Lead.findById(req.params.id).populate('category', 'name externalId commissionType _id');
-            if (!lead) return res.status(404).json({ error: 'Lead not found' });
+            const lead = await Lead.findOne({ revenueToken: req.params.revenueToken }).populate('category', 'name externalId commissionType _id');
+            if (!lead) return res.status(404).json({ error: 'Invalid or missing revenue tracking token' });
             const category = lead.category;
             if (!category || category.externalId !== 'svc_025') {
                 return res.status(400).json({ error: 'Revenue reporting is only applicable to R&D Tax Services (svc_025)' });

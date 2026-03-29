@@ -19,6 +19,7 @@ const leadSchema = new mongoose.Schema({
     formSource: { type: String, enum: ['category_page', 'request_service', 'introducer_form', 'qualification_flow'], required: true },
     outcomeToken: { type: String, unique: true, sparse: true },
     outcomeTokenExpiry: { type: Date, default: null },
+    revenueToken: { type: String, unique: true, sparse: true },
     outcome: { type: String, enum: ['won', 'lost', 'not_suitable', null], default: null },
     partnerFeeTotal: { type: Number, default: 0 },
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', default: null },
