@@ -16,14 +16,7 @@ const commissionSchema = new mongoose.Schema({
     wisemoveShare: { type: Number, default: 0 },   // £ amount
     rdTaxYear: { type: Number, default: null },     // for tiered R&D tax logic
     notes: { type: String, default: '' },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-});
-
-commissionSchema.pre('save', function (next) {
-    this.updatedAt = Date.now();
-    next();
-});
+}, { timestamps: true });
 
 commissionSchema.index({ leadId: 1 });
 commissionSchema.index({ partnerId: 1 });

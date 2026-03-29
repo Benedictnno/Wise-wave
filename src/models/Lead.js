@@ -30,7 +30,9 @@ const leadSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
-leadSchema.index({ outcomeToken: 1 });
+
 leadSchema.index({ email: 1, category: 1, createdAt: -1 }); // For H-7 duplicate check
 leadSchema.index({ status: 1, createdAt: -1 }); // L-3 fix
 leadSchema.index({ assignedPartnerId: 1 }); // L-3 fix
+
+module.exports = mongoose.model('Lead', leadSchema);
