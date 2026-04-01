@@ -17,7 +17,7 @@ const extractPostcodeLevels = (postcode) => {
     // Sector: first char of second part (e.g. "NW1 1")
     const sectorMatch = p.match(/^[A-Z]{1,2}[0-9][A-Z0-9]?\s?[0-9]?/)?.[0] || '';
     
-    return { area, district, sector: sectorMatch.trim() };
+    return { area, district: districtMatch, sector: sectorMatch.trim() };
 };
 
 /**
