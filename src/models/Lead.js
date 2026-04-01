@@ -10,6 +10,9 @@ const leadSchema = new mongoose.Schema({
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     subservices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subservice' }], // Array for R&D sub-categories
     description: { type: String, default: '' },
+    urgency: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+    budgetRange: { type: String, default: '' },
+    preferredContactTime: { type: String, enum: ['anytime', 'morning', 'afternoon', 'evening'], default: 'anytime' },
     introducerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Introducer', default: null },
     assignedPartnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
     status: { type: String, enum: ['assigned', 'unassigned'], default: 'unassigned' },

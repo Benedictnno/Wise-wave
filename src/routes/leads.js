@@ -53,19 +53,41 @@ const { v4: uuidv4 } = require('uuid');
 router.post(
     '/',
     [
-        body('name').trim().notEmpty().withMessage('Name is required'),
+        body('firstName').trim().notEmpty().withMessage('First name is required'),
+        body('lastName').trim().notEmpty().withMessage('Last name is required'),
         body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
         body('phone').trim().notEmpty().withMessage('Phone number is required'),
         body('postcode').trim().notEmpty().withMessage('Postcode is required'),
-        body('category').isMongoId().withMessage('Valid category ID is required'),
+        body('serviceCategory').isMongoId().withMessage('Valid service category ID is required'),
         body('subservices').optional().isArray(),
-        body('consentAccepted').isBoolean().custom(val => val === true).withMessage('Consent must be accepted'),
+        body('gdprConsent').isBoolean().custom(val => val === true).withMessage('Consent must be accepted'),
         body('formSource').optional().isIn(['category_page', 'request_service', 'introducer_form', 'qualification_flow']),
+        body('urgency').optional().isIn(['low', 'medium', 'high', 'urgent']),
+        body('preferredContactTime').optional().isIn(['anytime', 'morning', 'afternoon', 'evening']),
+        body('budgetRange').optional().isString(),
+        body('company').optional().isString(),
+        body('introducerId').optional().isMongoId().withMessage('Invalid introducer ID'),
     ],
     validate,
     async (req, res) => {
         try {
-            const { name, email, phone, postcode, category: categoryId, subservices, description, introducerId, formSource } = req.body;
+            // Map frontend fields → backend fields
+            const {
+                firstName, lastName,
+                email, phone, postcode,
+                serviceCategory: categoryId,
+                subservices,
+                description,
+                company,
+                urgency,
+                budgetRange,
+                preferredContactTime,
+                introducerId,
+                formSource,
+                gdprConsent: consentAccepted,
+            } = req.body;
+
+            const name = `${firstName.trim()} ${lastName.trim()}`;
 
             // 1. Verify Category
             const category = await Category.findById(categoryId);
@@ -83,7 +105,7 @@ router.post(
 
             if (duplicate) {
                 return res.status(200).json({ 
-                    message: "Thanks — we’ll match you shortly.", 
+                    message: "Thanks — we'll match you shortly.", 
                     referenceId: duplicate.referenceId,
                     note: 'Duplicate submission caught within 24h window'
                 });
@@ -103,12 +125,16 @@ router.post(
             const leadData = {
                 referenceId,
                 name,
+                companyName: company || '',
                 email,
                 phone,
                 postcode: postcode.toUpperCase().trim(),
                 category: categoryId,
                 subservices: subservices || [],
-                description,
+                description: description || '',
+                urgency: urgency || 'medium',
+                budgetRange: budgetRange || '',
+                preferredContactTime: preferredContactTime || 'anytime',
                 introducerId: introducerId || null,
                 consentAccepted: true,
                 consentTimestamp: new Date(),
@@ -139,7 +165,7 @@ router.post(
             );
 
             return res.status(201).json({
-                message: "Thanks — we’ll match you shortly.",
+                message: "Thanks — we'll match you shortly.",
                 referenceId
             });
 

@@ -14,12 +14,17 @@ async function testLeadCreation() {
         }
 
         const payload = {
-            name: 'Test User',
+            firstName: 'Backend',
+            lastName: 'Test',
             email: 'test' + Date.now() + '@example.com',
             phone: '07000000000',
             postcode: 'NW1 1AB',
-            category: category._id.toString(),
-            consentAccepted: true
+            serviceCategory: category._id.toString(),
+            gdprConsent: true,
+            company: 'Test Corp',
+            urgency: 'high',
+            budgetRange: '£1k - £5k',
+            preferredContactTime: 'morning'
         };
 
         console.log('Testing payload:', payload);
