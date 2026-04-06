@@ -6,7 +6,7 @@ const Partner = require('../models/Partner');
 const PartnerService = require('../models/PartnerService');
 const LeadPartnerAssignment = require('../models/LeadPartnerAssignment');
 const LeadEvent = require('../models/LeadEvent');
-// const { dispatchNotifications, notifyAdminUnassigned } = require('./notificationEngine');
+const { dispatchNotifications, notifyAdminUnassigned } = require('./notificationEngine');
 
 const getEligiblePartners = async (lead) => {
     // 1. Find all partners authorized for this service_type
@@ -81,7 +81,7 @@ const routeLead = async (lead) => {
             event_data: { partnerFound: false }
         });
         
-        // notifyAdminUnassigned(lead);
+        notifyAdminUnassigned(lead);
         return { success: false, reason: 'no_partner_available' };
     }
 
@@ -113,7 +113,7 @@ const routeLead = async (lead) => {
         event_data: { partner_id: selectedPartner._id }
     });
 
-    // dispatchNotifications(lead, selectedPartner);
+    dispatchNotifications(lead, selectedPartner);
 
     return { success: true, partner: selectedPartner };
 };

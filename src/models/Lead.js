@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
 
 const leadSchema = new mongoose.Schema({
+    referenceId: { type: String, unique: true, sparse: true },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Re-added legacy / required fields for runtime ops
+    name: { type: String },
+    email: { type: String, lowercase: true },
+    phone: { type: String },
+    category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+    description: { type: String },
     service_type: { 
         type: String, 
         required: true,
@@ -50,10 +57,29 @@ const leadSchema = new mongoose.Schema({
     // Routing fields
     status: { 
         type: String, 
-        enum: ['new', 'assigned', 'returned', 'reassigned', 'completed', 'manual_review'],
+        enum: ['new', 'assigned', 'returned', 'reassigned', 'completed', 'manual_review', 'unassigned'],
         default: 'new'
     },
-    current_partner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null }
+    current_partner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
+    assignedPartnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
+    outcomeToken: { type: String, unique: true, sparse: true },
+    outcomeTokenExpiry: { type: Date, default: null },
+    revenueToken: { type: String, unique: true, sparse: true },
+    outcome: { type: String, enum: ['won', 'lost', 'not_suitable', null], default: null },
+    partnerFeeTotal: { type: Number, default: 0 },
+    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', default: null },
+    paymentStatus: {
+        type: String,
+        enum: ['not_invoiced', 'invoiced', 'paid', 'reversed'],
+        default: 'not_invoiced',
+    },
+    adminNotes: { type: String, default: '' },
+    introducerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Introducer', default: null }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// Indexes per feedback
+leadSchema.index({ status: 1, created_at: -1 });
+leadSchema.index({ service_type: 1 });
+leadSchema.index({ current_partner_id: 1 });
 
 module.exports = mongoose.model('Lead', leadSchema);

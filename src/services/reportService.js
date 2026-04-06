@@ -100,7 +100,6 @@ const sendOverdueInvoiceReminders = async () => {
                     text:
                         `Dear ${partner.companyName},\n\n` +
                         `Reminder: Invoice ${invoice.invoiceNumber} (£${invoice.amount.toFixed(2)}) is ${daysOverdue} day(s) overdue.\n\n` +
-                        `Pay securely online here:\n${invoice.stripePaymentUrl}\n\n` +
                         `Download PDF:\n${invoice.pdfPath}\n\n` +
                         `WiseMove Connect`,
                 }),
@@ -140,6 +139,36 @@ const recoverPendingDeliveries = async () => {
     }
 };
 
+const monitorSLAExpiry = async () => {
+    try {
+        const LeadPartnerAssignment = require('../models/LeadPartnerAssignment');
+        const Lead = require('../models/Lead');
+        const { fallbackRouteLead } = require('./routingEngine');
+
+        // Check assigned leads older than 24 hours
+        const slaThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        const expiredAssignments = await LeadPartnerAssignment.find({
+            assignment_status: 'assigned',
+            assigned_at: { $lt: slaThreshold }
+        });
+
+        for (const assignment of expiredAssignments) {
+            const lead = await Lead.findById(assignment.lead_id);
+            if (lead && lead.status === 'assigned') {
+                console.log(`[SLA] Lead ${lead.referenceId} SLA expired. Falling back.`);
+                await fallbackRouteLead(lead, assignment._id, 'expired_sla');
+            } else {
+                // If the lead was somehow manually resolved but the assignment wasn't updated
+                assignment.assignment_status = 'expired';
+                await assignment.save();
+            }
+        }
+    } catch (err) {
+        console.error('[SLA Monitor Error]', err.message);
+    }
+};
+
 const initCronJobs = () => {
     // Monthly report — 1st of every month at 08:00
     cron.schedule('0 8 1 * *', async () => {
@@ -157,7 +186,12 @@ const initCronJobs = () => {
         await recoverPendingDeliveries();
     });
 
-    console.log('[Cron] reporting, overdue reminders, regenerators, and recovery jobs scheduled');
+    // SLA Monitoring every hour
+    cron.schedule('0 * * * *', async () => {
+        await monitorSLAExpiry();
+    });
+
+    console.log('[Cron] reporting, overdue reminders, regenerators, SLA and recovery jobs scheduled');
 };
 
 module.exports = { initCronJobs, generateMonthlyReport, sendOverdueInvoiceReminders };

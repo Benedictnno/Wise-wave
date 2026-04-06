@@ -39,6 +39,11 @@ const buildMessage = (lead, category, method) => {
         subservicesText = `\nR&D Subservices Selected:\n` + lead.subservices.map(sub => `  - ${sub.name || sub}`).join('\n') + `\n`;
     }
 
+    let fileUrlsText = '';
+    if (lead.files && lead.files.length > 0) {
+        fileUrlsText = `\nAttached Files:\n` + lead.files.map(f => `  - ${f.file_url}`).join('\n') + `\n`;
+    }
+
     const outcomeLinkText = method === 'email' 
         ? `Update Lead Outcome (7-day link):\n${frontendUrl}/outcome/${lead.outcomeToken}`
         : `Please check your registered email for the secure link to update the outcome.`;
@@ -51,8 +56,11 @@ const buildMessage = (lead, category, method) => {
         `Customer Name: ${lead.name}\n` +
         `Customer Phone: ${lead.phone}\n` +
         `Customer Email: ${lead.email}\n` +
+        `Urgency: ${lead.urgency || 'Not specified'}\n` +
+        `Budget: ${lead.budget_band || 'Not specified'}\n` +
         `Details: ${lead.description || 'N/A'}\n` +
         subservicesText +
+        fileUrlsText +
         `\nPlease contact the customer directly. Reply to this message if you need support.\n\n` +
         outcomeLinkText
     );
@@ -101,6 +109,12 @@ const deliverByWhatsApp = async (partner, body) => {
 
 // ─── Dispatch Engine with Retry Logic ─────────────────────────────────────────
 const dispatchNotifications = async (lead, partner, category, attempt = 1) => {
+    // Check if files are attached. If not loaded on the lead object, load them now
+    if (!lead.files) {
+        const File = require('../models/File');
+        lead.files = await File.find({ lead_id: lead._id }).lean();
+    }
+    
     const method = (attempt === 1) ? partner.preferredContactMethod : partner.backupDeliveryMethod || 'email';
     const message = buildMessage(lead, category, method);
     

@@ -33,9 +33,26 @@ router.get('/:id', async (req, res) => {
         const lead = await Lead.findById(req.params.id)
             .populate('category', 'name')
             .populate('assignedPartnerId', 'companyName email status')
+            .populate('current_partner_id', 'companyName email status')
+            .populate('user_id')
             .populate('introducerId', 'name email');
+            
         if (!lead) return res.status(404).json({ error: 'Lead not found' });
-        return res.json(lead);
+        
+        const LeadServiceAnswer = require('../../models/LeadServiceAnswer');
+        const File = require('../../models/File');
+        const LeadEvent = require('../../models/LeadEvent');
+        
+        const answers = await LeadServiceAnswer.find({ lead_id: lead._id });
+        const files = await File.find({ lead_id: lead._id });
+        const events = await LeadEvent.find({ lead_id: lead._id }).sort({ created_at: -1 });
+
+        return res.json({ 
+            lead, 
+            answers, 
+            files, 
+            events 
+        });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
