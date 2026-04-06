@@ -5,7 +5,6 @@ const Invoice = require('../models/Invoice');
 const Counter = require('../models/Counter');
 const Partner = require('../models/Partner');
 const cloudinary = require('../config/cloudinary');
-const stripe = require('../config/stripe');
 
 /**
  * Generate a sequential invoice number of the form INV-00001.
@@ -40,39 +39,9 @@ const generateInvoice = async (lead, commission) => {
         dueDate,
     });
 
-    // ── 2. Create Stripe Payment Link ─────────────────────────────────────────
-    let stripeData = { linkId: null, url: null };
-    try {
-        // Create a one-time product for this invoice
-        const product = await stripe.products.create({
-            name: `WiseMove Connect Invoice ${invoiceNumber}`,
-            description: `Lead: ${lead.referenceId} | Category: ${lead.category ? lead.category.name : 'N/A'}`,
-        });
+    // ── 2. Create Payment Link (Removed per No Payment Processing Rule) ──
+    const paymentInstructions = "Please pay via direct bank transfer. Bank Details: ...";
 
-        const price = await stripe.prices.create({
-            unit_amount: Math.round(commission.wisemoveShare * 100), // convert to pence
-            currency: 'gbp',
-            product: product.id,
-        });
-
-        const paymentLink = await stripe.paymentLinks.create({
-            line_items: [{ price: price.id, quantity: 1 }],
-            after_completion: { type: 'redirect', redirect: { url: process.env.STRIPE_SUCCESS_URL || 'https://wisemoveconnect.com/payment-success' } },
-            metadata: {
-                invoiceNumber,
-                invoiceId: invoice._id.toString(),
-                leadId: lead._id.toString(),
-                partnerId: partner._id.toString(),
-                commissionId: commission._id.toString()
-            }
-        });
-        stripeData.linkId = paymentLink.id;
-        stripeData.url = paymentLink.url;
-    } catch (err) {
-        console.error('[Stripe] Failed to create payment link:', err.message);
-        // Fallback or cleanup? Keep going for now manually fixing up stripe later if needed?
-        // Actually, without link, partner can't pay. But let's keep PDF generation.
-    }
 
     // ── 3. Build PDF ────────────────────────────────────────────────────────────
     const tempInvoicesDir = path.join(__dirname, '../../storage/temp_invoices');
@@ -106,13 +75,8 @@ const generateInvoice = async (lead, commission) => {
     doc.fontSize(14).text(`Total Amount Due: £${commission.wisemoveShare.toFixed(2)}`, { bold: true });
     doc.moveDown();
 
-    // Payment Link
-    if (stripeData.url) {
-        doc.fontSize(12).fillColor('blue').text('Click here to pay securely via Stripe:', { underline: true });
-        doc.fontSize(10).text(stripeData.url, { link: stripeData.url });
-        doc.fillColor('black');
-        doc.moveDown(2);
-    }
+    doc.fontSize(12).fillColor('black').text(paymentInstructions);
+    doc.moveDown(2);
 
     doc.fontSize(10).text('Payment is due within 14 days. Thank you.', { align: 'center' });
     doc.end();
@@ -132,8 +96,7 @@ const generateInvoice = async (lead, commission) => {
 
     // ── 5. Finalize Invoice ──────────────────────────────────────────────────────
     invoice.pdfPath = cloudinaryResult.secure_url;
-    invoice.stripePaymentLinkId = stripeData.linkId;
-    invoice.stripePaymentUrl = stripeData.url;
+    // stripePaymentLinkId and url removed
     await invoice.save();
 
     await sendInvoiceEmail(invoice, partner);
@@ -152,7 +115,6 @@ const sendInvoiceEmail = async (invoice, partner) => {
             text:
                 `Dear ${partner.companyName},\n\n` +
                 `Please find attached your invoice ${invoice.invoiceNumber} for £${invoice.amount.toFixed(2)}.\n\n` +
-                `Pay securely online here:\n${invoice.stripePaymentUrl}\n\n` +
                 `Download PDF copy:\n${invoice.pdfPath}\n\n` +
                 `Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-GB')}\n\n` +
                 `WiseMove Connect`,

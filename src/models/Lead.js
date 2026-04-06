@@ -1,42 +1,59 @@
 const mongoose = require('mongoose');
 
 const leadSchema = new mongoose.Schema({
-    referenceId: { type: String, unique: true, required: true },
-    name: { type: String, required: true, trim: true },
-    companyName: { type: String, trim: true, default: '' },
-    email: { type: String, required: true, trim: true, lowercase: true },
-    phone: { type: String, required: true, trim: true },
-    postcode: { type: String, required: true, trim: true, uppercase: true },
-    category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
-    subservices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subservice' }], // Array for R&D sub-categories
-    description: { type: String, default: '' },
-    urgency: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
-    budgetRange: { type: String, default: '' },
-    preferredContactTime: { type: String, enum: ['anytime', 'morning', 'afternoon', 'evening'], default: 'anytime' },
-    introducerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Introducer', default: null },
-    assignedPartnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
-    status: { type: String, enum: ['assigned', 'unassigned'], default: 'unassigned' },
-    assignedAt: { type: Date, default: null },
-    consentAccepted: { type: Boolean, required: true },
-    consentTimestamp: { type: Date, required: true },
-    formSource: { type: String, enum: ['category_page', 'request_service', 'introducer_form', 'qualification_flow'], required: true },
-    outcomeToken: { type: String, unique: true, sparse: true },
-    outcomeTokenExpiry: { type: Date, default: null },
-    revenueToken: { type: String, unique: true, sparse: true },
-    outcome: { type: String, enum: ['won', 'lost', 'not_suitable', null], default: null },
-    partnerFeeTotal: { type: Number, default: 0 },
-    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', default: null },
-    paymentStatus: {
-        type: String,
-        enum: ['not_invoiced', 'invoiced', 'paid', 'reversed'],
-        default: 'not_invoiced',
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    service_type: { 
+        type: String, 
+        required: true,
+        enum: [
+            'estateAgents', 'lettingsPropertyManagement', 'trades', 'epc', 'floorplans', 
+            'surveyors', 'removals', 'cleaning', 'amlKyc', 'homeInsurance', 
+            'landlordInsurance', 'auctionServices', 'solicitorsConveyancing', 
+            'willsEstatePlanning', 'lifeProtection', 'mortgageBrokerIntro', 'ifaIntro', 
+            'commercialPropertyServices', 'hrServices', 'commercialFinance', 
+            'businessLoans', 'assetFinance', 'invoiceFinance', 'developmentFinance', 
+            'bridgingFinance', 'rndTaxCredits', 'businessCoaching', 'itSupport', 
+            'webDesignDigital', 'accountancyBookkeeping', 'businessInsurance', 'ppiSmeInsurance'
+        ]
     },
-    createdAt: { type: Date, default: Date.now },
-});
+    property_postcode: { type: String, trim: true, uppercase: true },
+    best_time_to_contact: { 
+        type: String, 
+        enum: ['morning', 'afternoon', 'evening', 'anytime'], 
+        required: true 
+    },
+    budget_band: { 
+        type: String, 
+        enum: ['5000_plus', '1000_4999', '500_999', '1_499', 'not_sure'], 
+        required: true 
+    },
+    urgency: { 
+        type: String, 
+        enum: ['asap', '48_hours', '1_week', '1_2_months', '3_plus_months', 'researching'], 
+        required: true 
+    },
+    additional_details: { type: String, required: true },
+    how_did_you_hear: { 
+        type: String, 
+        enum: ['estate_agent', 'google', 'social', 'referral', 'other'], 
+        required: true 
+    },
 
+    // Scoring fields
+    lead_score: { type: Number },
+    lead_category: { 
+        type: String, 
+        enum: ['premium', 'hot', 'warm', 'cold', 'manual_review'] 
+    },
+    red_flags: [{ type: String }],
 
-leadSchema.index({ email: 1, category: 1, createdAt: -1 }); // For H-7 duplicate check
-leadSchema.index({ status: 1, createdAt: -1 }); // L-3 fix
-leadSchema.index({ assignedPartnerId: 1 }); // L-3 fix
+    // Routing fields
+    status: { 
+        type: String, 
+        enum: ['new', 'assigned', 'returned', 'reassigned', 'completed', 'manual_review'],
+        default: 'new'
+    },
+    current_partner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null }
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 module.exports = mongoose.model('Lead', leadSchema);

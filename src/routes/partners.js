@@ -205,4 +205,99 @@ const notifyAdminNewPartner = async (partner) => {
     });
 };
 
+const Lead = require('../models/Lead');
+const LeadPartnerAssignment = require('../models/LeadPartnerAssignment');
+const LeadEvent = require('../models/LeadEvent');
+const { fallbackRouteLead } = require('../services/routingEngine');
+
+/**
+ * @openapi
+ * /api/partners/leads/{leadId}/accept:
+ *   post:
+ *     summary: Partner accepts the assigned lead
+ */
+router.post('/leads/:leadId/accept', async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.leadId);
+        if (!lead || lead.status !== 'assigned') {
+            return res.status(400).json({ error: 'Lead not found or cannot be accepted' });
+        }
+
+        const assignment = await LeadPartnerAssignment.findOne({
+            lead_id: lead._id,
+            partner_id: lead.current_partner_id,
+            assignment_status: 'assigned'
+        });
+
+        if (!assignment) {
+            return res.status(400).json({ error: 'No active assignment found for this lead/partner' });
+        }
+
+        assignment.assignment_status = 'accepted';
+        assignment.responded_at = new Date();
+        await assignment.save();
+
+        lead.status = 'assigned'; // Might already be assigned, but kept for clarity
+        await lead.save();
+
+        await LeadEvent.create({
+            lead_id: lead._id,
+            event_type: 'partner_accepted',
+            event_data: { partner_id: assignment.partner_id }
+        });
+
+        return res.status(200).json({ message: 'Lead accepted successfully' });
+    } catch (err) {
+        console.error('[POST /api/partners/leads/accept]', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * @openapi
+ * /api/partners/leads/{leadId}/reject:
+ *   post:
+ *     summary: Partner rejects the assigned lead
+ */
+router.post(
+    '/leads/:leadId/reject',
+    [
+        body('reason').isIn(['outside_remit', 'outside_area', 'capacity', 'conflict', 'duplicate', 'other']).withMessage('Valid rejection reason required')
+    ],
+    validate,
+    async (req, res) => {
+        try {
+            const { reason } = req.body;
+            const lead = await Lead.findById(req.params.leadId);
+            
+            if (!lead || lead.status !== 'assigned') {
+                return res.status(400).json({ error: 'Lead not found or cannot be rejected' });
+            }
+
+            const assignment = await LeadPartnerAssignment.findOne({
+                lead_id: lead._id,
+                partner_id: lead.current_partner_id,
+                assignment_status: 'assigned'
+            });
+
+            if (!assignment) {
+                return res.status(400).json({ error: 'No active assignment found for this lead/partner' });
+            }
+
+            // Fallback routing handles the assignment update, lead status update, and event creation
+            const fallbackResult = await fallbackRouteLead(lead, assignment._id, reason);
+
+            if (fallbackResult.success) {
+                return res.status(200).json({ message: 'Lead rejected and successfully reassigned.' });
+            } else {
+                return res.status(200).json({ message: 'Lead rejected. No other partners available for reassignment.' });
+            }
+
+        } catch (err) {
+            console.error('[POST /api/partners/leads/reject]', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+);
+
 module.exports = router;

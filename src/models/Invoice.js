@@ -12,8 +12,6 @@ const invoiceSchema = new mongoose.Schema({
         default: 'unpaid' 
     },
     pdfPath: { type: String, default: null },
-    stripePaymentLinkId: { type: String, default: null }, // for stripe checkout links
-    stripePaymentUrl: { type: String, default: null },    // actual link for partner
     issuedAt: { type: Date, default: Date.now },
     dueDate: { type: Date, required: true },
     paidAt: { type: Date, default: null },

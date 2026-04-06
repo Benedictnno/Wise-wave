@@ -24,7 +24,6 @@ const adminPayoutsRoute = require('./routes/admin/payouts');
 const adminQualificationRoute = require('./routes/admin/qualification');
 const qualifyRoute = require('./routes/qualify');
 const subservicesRoute = require('./routes/subservices');
-const stripeWebhookRoute = require('./routes/webhooks/stripe');
 const resendWebhookRoute = require('./routes/webhooks/resend');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
@@ -95,7 +94,6 @@ const outcomeLimiter = rateLimit({
 });
 
 // --- Webhooks (Raw Body Needed for validation) ---
-app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoute);
 app.use('/api/webhooks/resend', express.raw({ type: 'application/json' }), resendWebhookRoute);
 
 // ─── Body Parsing & Logging ───────────────────────────────────────────────────
