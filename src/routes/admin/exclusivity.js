@@ -10,6 +10,29 @@ router.use(authMiddleware);
  * GET /admin/exclusivity
  * List all exclusivity records
  */
+/**
+ * @openapi
+ * /admin/exclusivity:
+ *   get:
+ *     summary: List postcode exclusivity records
+ *     tags: [Admin Exclusivity]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Exclusivity record list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { type: object }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 router.get('/', async (req, res) => {
     try {
         const records = await PostcodeExclusivity.find()
@@ -23,6 +46,34 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /admin/exclusivity/:id
+ */
+/**
+ * @openapi
+ * /admin/exclusivity/{id}:
+ *   get:
+ *     summary: Get postcode exclusivity record
+ *     tags: [Admin Exclusivity]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Exclusivity record
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.get('/:id', async (req, res) => {
     try {
@@ -39,6 +90,51 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /admin/exclusivity
  * Create a new exclusivity record
+ */
+/**
+ * @openapi
+ * /admin/exclusivity:
+ *   post:
+ *     summary: Create postcode exclusivity record
+ *     description: Grants a partner exclusivity for a category within a postcode level (Area/District/Sector).
+ *     tags: [Admin Exclusivity]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [partnerId, categoryId, postcode, level]
+ *             properties:
+ *               partnerId: { type: string, example: "65f1234567890abcdef77777" }
+ *               categoryId: { type: string, example: "65f1234567890abcdef99999" }
+ *               postcode: { type: string, example: "NW1" }
+ *               level: { type: string, enum: [Area, District, Sector], example: "District" }
+ *               notes: { type: string, example: "Exclusive agreement signed 2026-04-01." }
+ *     responses:
+ *       201:
+ *         description: Exclusivity record created
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       400:
+ *         description: Validation error, partner/category mismatch, or exclusivity already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - { $ref: '#/components/schemas/ValidationErrorsResponse' }
+ *                 - { $ref: '#/components/schemas/ErrorResponse' }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post(
     '/',
@@ -76,6 +172,36 @@ router.post(
 /**
  * DELETE /admin/exclusivity/:id
  * Remove record
+ */
+/**
+ * @openapi
+ * /admin/exclusivity/{id}:
+ *   delete:
+ *     summary: Delete postcode exclusivity record
+ *     tags: [Admin Exclusivity]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message]
+ *               properties:
+ *                 message: { type: string, example: "Exclusivity record deleted" }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.delete('/:id', async (req, res) => {
     try {

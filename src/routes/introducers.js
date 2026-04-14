@@ -16,11 +16,47 @@ const Commission = require('../models/Commission');
  *         name: token
  *         required: true
  *         schema: { type: string }
+ *         example: "6b0a0a6d2b9a4f8c9f2f4c6a1d0b1234"
  *     responses:
  *       200:
  *         description: Introducer stats payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [introducer, stats]
+ *               properties:
+ *                 introducer:
+ *                   type: object
+ *                   required: [name, email, id]
+ *                   properties:
+ *                     name: { type: string, example: "Acme Estates" }
+ *                     email: { type: string, format: email, example: "team@acmeestates.co.uk" }
+ *                     id: { type: string, example: "65f1234567890abcdef12345" }
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     monthlyLeads: { type: integer, example: 12 }
+ *                     introducerSplitPercent: { type: integer, example: 30 }
+ *                     leadsSubmittedLast30Days: { type: integer, example: 20 }
+ *                     commissions:
+ *                       type: object
+ *                       properties:
+ *                         paid:
+ *                           type: object
+ *                           properties:
+ *                             total: { type: number, example: 450.5 }
+ *                             count: { type: integer, example: 3 }
+ *                         unpaid:
+ *                           type: object
+ *                           properties:
+ *                             total: { type: number, example: 210 }
+ *                             count: { type: integer, example: 2 }
  *       404:
  *         description: Invalid token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/:token/stats', async (req, res) => {
     try {

@@ -12,6 +12,36 @@ const { AsyncParser } = require('json2csv');
 
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/reports/stats:
+ *   get:
+ *     summary: Get dashboard stats
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Stats payload for admin dashboard
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [totalLeads, leadsLast30, activePartners, conversionRate, totalRevenue, totalPendingPayouts]
+ *               properties:
+ *                 totalLeads: { type: integer, example: 1234 }
+ *                 leadsLast30: { type: integer, example: 120 }
+ *                 activePartners: { type: integer, example: 18 }
+ *                 conversionRate: { type: number, example: 12.5, description: "Won leads / total leads (%)" }
+ *                 totalRevenue: { type: number, example: 2500.75, description: "Sum of paid commission wisemoveShare" }
+ *                 totalPendingPayouts: { type: number, example: 300.0, description: "Sum of pending introducer payouts" }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/reports/stats
 router.get('/stats', async (req, res) => {
     try {
@@ -49,6 +79,36 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/reports/partners:
+ *   get:
+ *     summary: Partner performance summary
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Aggregated partner stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   partnerId: { type: string }
+ *                   partnerName: { type: string }
+ *                   totalLeads: { type: integer }
+ *                   wonDeals: { type: integer }
+ *                   totalRevenue: { type: number }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/reports/partners
 router.get('/partners', async (req, res) => {
     try {
@@ -75,6 +135,37 @@ router.get('/partners', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/reports/introducers:
+ *   get:
+ *     summary: Introducer performance summary
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Aggregated introducer stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   introducerId: { type: string }
+ *                   name: { type: string }
+ *                   company: { type: string }
+ *                   totalLeads: { type: integer }
+ *                   totalEarned: { type: number }
+ *                   paidOut: { type: number }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/reports/introducers
 router.get('/introducers', async (req, res) => {
     try {
@@ -110,6 +201,36 @@ const sendCSV = async (res, data, filename) => {
     return res.send(csv);
 };
 
+/**
+ * @openapi
+ * /admin/reports/export:
+ *   get:
+ *     summary: Export report as CSV
+ *     description: Returns a CSV file attachment. Supported types are `partners`, `payouts`, and `postcodes`.
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [partners, payouts, postcodes]
+ *     responses:
+ *       200:
+ *         description: CSV file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/reports/export?type=partners|categories|postcodes|payouts
 router.get('/export', async (req, res) => {
     try {

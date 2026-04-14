@@ -7,6 +7,42 @@ const Category = require('../models/Category');
  * GET /api/subservices?categorySlug=rd-tax-credits
  * Returns subservices for a given parent category slug.
  */
+/**
+ * @openapi
+ * /api/subservices:
+ *   get:
+ *     summary: List subservices for a category
+ *     description: Returns active subservices for a category, identified by category slug.
+ *     tags: [Subservices]
+ *     parameters:
+ *       - in: query
+ *         name: categorySlug
+ *         required: true
+ *         schema: { type: string, example: "rd-tax-credits" }
+ *         description: The parent category's `serviceSlug`.
+ *     responses:
+ *       200:
+ *         description: List of active subservices
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id: { type: string, example: "65f1234567890abcdef12345" }
+ *                   categoryId: { type: string, example: "65f1234567890abcdef99999" }
+ *                   name: { type: string, example: "Software Development" }
+ *                   slug: { type: string, example: "software-development" }
+ *                   description: { type: string, example: "R&D claim support for software teams." }
+ *                   isActive: { type: boolean, example: true }
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 router.get('/', async (req, res) => {
     try {
         const { categorySlug } = req.query;
@@ -24,6 +60,36 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/subservices/:slug
+ */
+/**
+ * @openapi
+ * /api/subservices/{slug}:
+ *   get:
+ *     summary: Get a subservice by slug
+ *     tags: [Subservices]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema: { type: string, example: "software-development" }
+ *     responses:
+ *       200:
+ *         description: Subservice
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id: { type: string }
+ *                 categoryId: { type: string }
+ *                 name: { type: string }
+ *                 slug: { type: string }
+ *                 description: { type: string }
+ *                 isActive: { type: boolean }
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.get('/:slug', async (req, res) => {
     try {

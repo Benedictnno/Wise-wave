@@ -14,6 +14,66 @@ const { sendLeadConfirmation } = require('../services/notificationEngine');
 const { generateReferenceId } = require('../services/referenceId');
 const { v4: uuidv4 } = require('uuid');
 
+/**
+ * @openapi
+ * /api/leads:
+ *   post:
+ *     summary: Submit a lead
+ *     description: >
+ *       Creates (or reuses) a user, stores a lead submission, scores it, and attempts routing to a partner.
+ *       This endpoint is rate-limited.
+ *     tags: [Leads]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LeadSubmissionRequest'
+ *           examples:
+ *             basic:
+ *               summary: Typical lead submission
+ *               value:
+ *                 fullName: "Jane Smith"
+ *                 email: "jane@example.com"
+ *                 phone: "07700123456"
+ *                 preferredContactMethod: "either"
+ *                 homePostcode: "SW1A 1AA"
+ *                 propertyPostcode: "SW1A 2AA"
+ *                 bestTimeToContact: "anytime"
+ *                 serviceType: "Mortgage Broker"
+ *                 serviceSpecificQuestions:
+ *                   hasExistingMortgage: true
+ *                   propertyValue: 450000
+ *                 additionalDetails: "Looking for advice on a remortgage in the next 4–8 weeks."
+ *                 intentSignals:
+ *                   page: "mortgage"
+ *                   source: "google"
+ *                 budget: "not_sure"
+ *                 urgency: "1_2_months"
+ *                 howDidYouHear: "google"
+ *                 fileUpload:
+ *                   - fileName: "payslip.pdf"
+ *                     fileType: "application/pdf"
+ *                     fileSize: 123456
+ *                     fileUrl: "https://files.example.com/payslip.pdf"
+ *                 understandIntroducer: true
+ *                 consentToShare: true
+ *                 agreePrivacyPolicy: true
+ *                 honeypot: ""
+ *     responses:
+ *       201:
+ *         description: Lead created and queued for matching
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LeadSubmissionResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 router.post(
     '/',
     [

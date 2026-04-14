@@ -4,6 +4,58 @@ const router = express.Router();
 // M-9: Inbound Resend webhooks
 const { Webhook } = require('svix');
 
+/**
+ * @openapi
+ * /api/webhooks/resend/inbound:
+ *   post:
+ *     summary: Resend inbound webhook (email replies)
+ *     description: >
+ *       Validates Svix signature headers and forwards the inbound email to the configured admin email.
+ *       This endpoint expects the raw request body (configured in server middleware).
+ *     tags: [Webhooks]
+ *     parameters:
+ *       - in: header
+ *         name: svix-id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: header
+ *         name: svix-timestamp
+ *         required: true
+ *         schema: { type: string }
+ *       - in: header
+ *         name: svix-signature
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *           examples:
+ *             example:
+ *               value:
+ *                 from: "partner@example.com"
+ *                 subject: "Re: New WiseMove Connect Introduction"
+ *                 text: "Thanks — we can take this on."
+ *     responses:
+ *       200:
+ *         description: Webhook accepted
+ *         content:
+ *           text/plain:
+ *             schema: { type: string, example: "OK" }
+ *       400:
+ *         description: Missing Svix headers or invalid signature
+ *         content:
+ *           text/plain:
+ *             schema: { type: string, example: "Invalid signature" }
+ *       500:
+ *         description: Internal error
+ *         content:
+ *           text/plain:
+ *             schema: { type: string, example: "Internal Error" }
+ */
 router.post('/inbound', async (req, res) => {
     try {
         const payloadString = req.body.toString();

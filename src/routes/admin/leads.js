@@ -10,6 +10,44 @@ const { v4: uuidv4 } = require('uuid');
 
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /admin/leads/unassigned:
+ *   get:
+ *     summary: List unassigned leads
+ *     description: Returns paginated leads with status `unassigned`.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1, minimum: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+ *     responses:
+ *       200:
+ *         description: Paginated unassigned leads
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [leads, total, page, limit]
+ *               properties:
+ *                 leads:
+ *                   type: array
+ *                   items: { type: object }
+ *                 total: { type: integer, example: 25 }
+ *                 page: { type: integer, example: 1 }
+ *                 limit: { type: integer, example: 50 }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/leads/unassigned
 router.get('/unassigned', async (req, res) => {
     try {
@@ -27,6 +65,63 @@ router.get('/unassigned', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/{id}:
+ *   get:
+ *     summary: Get lead details (including answers/files/events)
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead detail payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [lead, answers, files, events]
+ *               properties:
+ *                 lead: { type: object }
+ *                 answers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       question_key: { type: string, example: "propertyValue" }
+ *                       question_label: { type: string, example: "propertyValue" }
+ *                       answer_value: { example: 450000 }
+ *                 files:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       file_name: { type: string, example: "payslip.pdf" }
+ *                       file_type: { type: string, example: "application/pdf" }
+ *                       file_size: { type: integer, example: 123456 }
+ *                       file_url: { type: string, example: "https://files.example.com/payslip.pdf" }
+ *                 events:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       event_type: { type: string, example: "created" }
+ *                       created_at: { type: string, format: date-time }
+ *                       event_data: { type: object, additionalProperties: true }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/leads/:id
 router.get('/:id', async (req, res) => {
     try {
@@ -58,6 +153,39 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/{id}:
+ *   delete:
+ *     summary: GDPR hard delete (anonymize lead PII)
+ *     description: Anonymizes personal fields but retains the lead record for operational/commission tracking.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead anonymized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message]
+ *               properties:
+ *                 message: { type: string, example: "Lead personal data has been erased per GDPR" }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // DELETE /admin/leads/:id - GDPR Hard Delete (Anonymize)
 router.delete('/:id', async (req, res) => {
     try {
@@ -80,6 +208,45 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /admin/leads/{id}/notes:
+ *   patch:
+ *     summary: Update admin notes on a lead
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [adminNotes]
+ *             properties:
+ *               adminNotes: { type: string, maxLength: 2000, example: "Spoke to lead, warm transfer expected." }
+ *     responses:
+ *       200:
+ *         description: Updated lead document
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // PATCH /admin/leads/:id/notes
 router.patch('/:id/notes',
     [body('adminNotes').trim().notEmpty().isLength({ max: 2000 })],
@@ -99,6 +266,53 @@ router.patch('/:id/notes',
     }
 );
 
+/**
+ * @openapi
+ * /admin/leads/{id}/outcome:
+ *   patch:
+ *     summary: Set outcome on a lead (admin override)
+ *     description: Applies the same outcome processing as the partner secure link flow.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [outcome]
+ *             properties:
+ *               outcome: { type: string, enum: [won, lost, not_suitable] }
+ *               partnerFee: { type: number, example: 2500 }
+ *               notes: { type: string, example: "Admin manual conversion" }
+ *     responses:
+ *       200:
+ *         description: Outcome applied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message, data]
+ *               properties:
+ *                 message: { type: string, example: "Outcome set" }
+ *                 data: { type: object }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // PATCH /admin/leads/:id/outcome
 router.patch('/:id/outcome',
     [
@@ -126,6 +340,56 @@ router.patch('/:id/outcome',
     }
 );
 
+/**
+ * @openapi
+ * /admin/leads:
+ *   get:
+ *     summary: List leads (with filters)
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *       - in: query
+ *         name: category
+ *         schema: { type: string, description: "Category MongoDB id" }
+ *       - in: query
+ *         name: outcome
+ *         schema: { type: string, enum: [won, lost, not_suitable] }
+ *       - in: query
+ *         name: dateFrom
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: dateTo
+ *         schema: { type: string, format: date-time }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1, minimum: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+ *     responses:
+ *       200:
+ *         description: Paginated leads
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [leads, total, page, limit]
+ *               properties:
+ *                 leads: { type: array, items: { type: object } }
+ *                 total: { type: integer }
+ *                 page: { type: integer }
+ *                 limit: { type: integer }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
 // GET /admin/leads
 router.get('/', async (req, res) => {
     try {
@@ -160,6 +424,54 @@ router.get('/', async (req, res) => {
  * PATCH /admin/leads/:id/assign
  * Manually assign or RE-ASSIGN a lead to a partner.
  * Resets outcome token and sets a fresh 7-day expiry.
+ */
+/**
+ * @openapi
+ * /admin/leads/{id}/assign:
+ *   patch:
+ *     summary: Assign (or reassign) a lead to a partner
+ *     description: Sets assigned partner, resets outcome, and generates a new 7-day outcome token.
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [partnerId]
+ *             properties:
+ *               partnerId: { type: string, example: "65f1234567890abcdef77777" }
+ *     responses:
+ *       200:
+ *         description: Lead assigned and notification dispatched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message, lead]
+ *               properties:
+ *                 message: { type: string, example: "Lead assigned and notified" }
+ *                 lead: { type: object }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         description: Lead or partner not found
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.patch(
     '/:id/assign',
@@ -201,6 +513,40 @@ router.patch(
 /**
  * POST /admin/leads/:id/resend
  * Manually trigger a resend of the introduction notification.
+ */
+/**
+ * @openapi
+ * /admin/leads/{id}/resend:
+ *   post:
+ *     summary: Resend the partner introduction notification
+ *     tags: [Admin Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Resend triggered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message]
+ *               properties:
+ *                 message: { type: string, example: "Resend triggered" }
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post('/:id/resend', async (req, res) => {
     try {

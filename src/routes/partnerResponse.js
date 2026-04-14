@@ -10,6 +10,58 @@ const { processPartnerResponse } = require('../services/partnerResponseService')
  * /api/partner-response/{token}:
  *   get:
  *     summary: Get lead details for outcome reporting
+ *     description: >
+ *       Fetches minimal lead details required for a partner to report an outcome using a one-time secure token.
+ *       Tokens expire after 7 days.
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *         description: One-time outcome token included in the partner introduction link.
+ *     responses:
+ *       200:
+ *         description: Lead details for outcome reporting
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id: { type: string, example: "65f1234567890abcdef12345" }
+ *                 name: { type: string, example: "Jane Smith" }
+ *                 postcode: { type: string, example: "SW1A 1AA" }
+ *                 description: { type: string, example: "Looking for a mortgage adviser" }
+ *                 createdAt: { type: string, format: date-time, example: "2026-04-14T12:34:56.789Z" }
+ *                 outcome:
+ *                   type: string
+ *                   nullable: true
+ *                   enum: [won, lost, not_suitable, null]
+ *                   example: null
+ *                 outcomeTokenExpiry: { type: string, format: date-time, example: "2026-04-21T12:34:56.789Z" }
+ *                 category:
+ *                   type: object
+ *                   properties:
+ *                     _id: { type: string, example: "65f1234567890abcdef99999" }
+ *                     name: { type: string, example: "R&D Tax Credits" }
+ *                     externalId: { type: string, example: "svc_025" }
+ *                     commissionType: { type: string, example: "tiered" }
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       410:
+ *         description: Token expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               expired:
+ *                 value:
+ *                   error: "This secure outcome link has expired (7-day window exceeded). Please contact WiseMove support if you still need to report this lead."
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.get('/:token', async (req, res) => {
     try {
@@ -36,6 +88,83 @@ router.get('/:token', async (req, res) => {
  * /api/partner-response/{token}:
  *   post:
  *     summary: Submit lead outcome
+ *     description: >
+ *       Submits a partner outcome using a one-time secure token. The token is consumed after a successful submission.
+ *       If the deal is won, the backend may create a commission and an invoice (except for R&D where revenue is reported later).
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [outcome]
+ *             properties:
+ *               outcome: { type: string, enum: [won, lost, not_suitable] }
+ *               partnerFee:
+ *                 type: number
+ *                 description: Required for some commission types (e.g. percentage-based categories).
+ *                 example: 2500
+ *               notes: { type: string, example: "Converted after initial consultation." }
+ *           examples:
+ *             won:
+ *               value: { outcome: "won", partnerFee: 2500, notes: "Converted after consultation." }
+ *             lost:
+ *               value: { outcome: "lost", notes: "Client already had a provider." }
+ *     responses:
+ *       200:
+ *         description: Outcome recorded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message, data]
+ *               properties:
+ *                 message: { type: string, example: "Outcome recorded successfully" }
+ *                 data:
+ *                   type: object
+ *                   description: Contains updated lead and (for won deals) may include commission and invoice.
+ *             examples:
+ *               won_non_rd:
+ *                 summary: Won (commission + invoice generated)
+ *                 value:
+ *                   message: "Outcome recorded successfully"
+ *                   data:
+ *                     lead: { _id: "65f1234567890abcdef12345", outcome: "won", paymentStatus: "invoiced" }
+ *                     commission: { _id: "65f1234567890abcdefaaaaa", commissionStatus: "unpaid", commissionValue: 500 }
+ *                     invoice: { _id: "65f1234567890abcdefbbbbb", invoiceNumber: "INV-00001", status: "unpaid", pdfPath: "https://res.cloudinary.com/.../INV-00001.pdf" }
+ *               won_rd:
+ *                 summary: Won (R&D special-case, revenue reported later)
+ *                 value:
+ *                   message: "Outcome recorded successfully"
+ *                   data:
+ *                     message: "Outcome recorded. Please submit revenue details using your unique tracking link when engagement completes."
+ *                     lead: { _id: "65f1234567890abcdef12345", outcome: "won", revenueToken: "b6f9f8b9-0c2d-4d16-9c90-1f6b1d2c3d4e" }
+ *       400:
+ *         description: Validation error, token already consumed, or business rule violation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - { $ref: '#/components/schemas/ValidationErrorsResponse' }
+ *                 - { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       410:
+ *         description: Token expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post(
     '/:token',
@@ -87,7 +216,58 @@ router.post(
  * @openapi
  * /api/partner-response/{revenueToken}/revenue:
  *   post:
- *     summary: Submit R&D revenue later, triggering calculation and invoice.
+ *     summary: Submit R&D revenue (post-win)
+ *     description: >
+ *       R&D Tax category only (externalId `svc_025`). Used after an initial "won" outcome to report revenue.
+ *       The server derives the year number (Year 1, Year 2) based on previous submissions for this lead and caps at Year 2.
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: revenueToken
+ *         required: true
+ *         schema: { type: string }
+ *         description: One-time revenue tracking token issued after a "won" outcome for R&D.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [revenueAmount, revenueDate]
+ *             properties:
+ *               revenueAmount: { type: number, example: 50000 }
+ *               revenueDate: { type: string, format: date, example: "2026-03-31" }
+ *               yearNumber:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 10
+ *                 deprecated: true
+ *                 description: Accepted for compatibility but ignored; year is derived server-side.
+ *     responses:
+ *       200:
+ *         description: Revenue recorded; may generate invoice/commission (Year 1–2 only)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 invoice: { type: object, nullable: true }
+ *                 commission: { type: object, nullable: true }
+ *       400:
+ *         description: Validation error or not eligible for revenue reporting
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - { $ref: '#/components/schemas/ValidationErrorsResponse' }
+ *                 - { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post(
     '/:revenueToken/revenue',

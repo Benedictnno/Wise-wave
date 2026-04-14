@@ -215,6 +215,30 @@ const { fallbackRouteLead } = require('../services/routingEngine');
  * /api/partners/leads/{leadId}/accept:
  *   post:
  *     summary: Partner accepts the assigned lead
+ *     description: Marks the current assignment as accepted for the lead's currently assigned partner.
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: leadId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lead accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message]
+ *               properties:
+ *                 message: { type: string, example: "Lead accepted successfully" }
+ *       400:
+ *         description: Lead not found or cannot be accepted (no active assignment)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post('/leads/:leadId/accept', async (req, res) => {
     try {
@@ -258,6 +282,50 @@ router.post('/leads/:leadId/accept', async (req, res) => {
  * /api/partners/leads/{leadId}/reject:
  *   post:
  *     summary: Partner rejects the assigned lead
+ *     description: Rejects the current assignment and attempts fallback reassignment to another partner.
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: leadId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 enum: [outside_remit, outside_area, capacity, conflict, duplicate, other]
+ *                 example: "outside_area"
+ *     responses:
+ *       200:
+ *         description: Lead rejected (may or may not be reassigned)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [message]
+ *               properties:
+ *                 message: { type: string }
+ *             examples:
+ *               reassigned:
+ *                 value: { message: "Lead rejected and successfully reassigned." }
+ *               no_reassignment:
+ *                 value: { message: "Lead rejected. No other partners available for reassignment." }
+ *       400:
+ *         description: Validation error or no active assignment found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - { $ref: '#/components/schemas/ValidationErrorsResponse' }
+ *                 - { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post(
     '/leads/:leadId/reject',

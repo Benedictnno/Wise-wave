@@ -130,6 +130,39 @@ app.use('/admin/qualification', adminQualificationRoute);
 // ─── API Documentation ────────────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, uiOptions));
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     description: Returns service status and DB connectivity status.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service healthy (DB connected)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [status, db, service, timestamp]
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 db: { type: string, example: ok }
+ *                 service: { type: string, example: WiseMove Connect API }
+ *                 timestamp: { type: string, format: date-time, example: "2026-04-14T12:34:56.789Z" }
+ *       503:
+ *         description: Service degraded (DB disconnected)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [status, db, service, timestamp]
+ *               properties:
+ *                 status: { type: string, example: degraded }
+ *                 db: { type: string, example: degraded }
+ *                 service: { type: string, example: WiseMove Connect API }
+ *                 timestamp: { type: string, format: date-time, example: "2026-04-14T12:34:56.789Z" }
+ */
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     const mongoose = require('mongoose');
