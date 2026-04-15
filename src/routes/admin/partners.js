@@ -233,7 +233,7 @@ router.post(
 // PUT /admin/partners/:id
 router.put('/:id', async (req, res) => {
     try {
-        const partner = await Partner.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        const partner = await Partner.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
         if (!partner) return res.status(404).json({ error: 'Partner not found' });
         return res.json(partner);
     } catch (err) {
@@ -297,7 +297,7 @@ router.patch(
             const partner = await Partner.findByIdAndUpdate(
                 req.params.id,
                 { status: req.body.status, updatedAt: new Date() },
-                { new: true, runValidators: true }
+                { returnDocument: 'after', runValidators: true }
             );
             if (!partner) return res.status(404).json({ error: 'Partner not found' });
             return res.status(200).json({ message: 'Partner status updated', partner });
@@ -351,7 +351,7 @@ router.put('/:id/subservices',
             const partner = await Partner.findByIdAndUpdate(
                 req.params.id,
                 { subservices: req.body.subservices },
-                { new: true }
+                { returnDocument: 'after' }
             ).populate('subservices', 'name slug');
             
             if (!partner) return res.status(404).json({ error: 'Not found' });

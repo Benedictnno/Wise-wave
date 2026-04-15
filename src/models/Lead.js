@@ -20,7 +20,8 @@ const leadSchema = new mongoose.Schema({
             'commercialPropertyServices', 'hrServices', 'commercialFinance', 
             'businessLoans', 'assetFinance', 'invoiceFinance', 'developmentFinance', 
             'bridgingFinance', 'rndTaxCredits', 'businessCoaching', 'itSupport', 
-            'webDesignDigital', 'accountancyBookkeeping', 'businessInsurance', 'ppiSmeInsurance'
+            'webDesignDigital', 'accountancyBookkeeping', 'businessInsurance', 'ppiSmeInsurance',
+            'commercial-property-management', 'ifa', 'insurance-risk'
         ]
     },
     property_postcode: { type: String, trim: true, uppercase: true },

@@ -117,7 +117,7 @@ router.post(
 router.put('/:id', async (req, res) => {
     try {
         const category = await Category.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
+            returnDocument: 'after',
             runValidators: true,
         });
         if (!category) return res.status(404).json({ error: 'Category not found' });
@@ -198,7 +198,7 @@ router.put(
             const rel = await CategoryRelationship.findOneAndUpdate(
                 { categoryId: req.params.id },
                 { categoryId: req.params.id, relatedCategories: req.body.relatedCategories },
-                { new: true, upsert: true }
+                { returnDocument: 'after', upsert: true }
             ).populate('relatedCategories', 'name');
             return res.status(200).json(rel);
         } catch (err) {

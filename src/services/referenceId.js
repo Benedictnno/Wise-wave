@@ -11,7 +11,7 @@ const generateReferenceId = async () => {
     const counter = await LeadCounter.findOneAndUpdate(
         { year },
         { $inc: { count: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     // pad count to 6 digits

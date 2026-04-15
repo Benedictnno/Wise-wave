@@ -212,7 +212,7 @@ router.patch(
             const commission = await Commission.findByIdAndUpdate(
                 req.params.id,
                 { commissionStatus: req.body.commissionStatus, updatedAt: new Date() },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (!commission) return res.status(404).json({ error: 'Commission not found' });
             return res.status(200).json({ message: 'Commission updated', commission });

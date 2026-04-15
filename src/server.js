@@ -29,6 +29,9 @@ const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
 
+// Trust proxy for express-rate-limit (behind load balancer)
+app.set('trust proxy', 1);
+
 // ─── Connect Database ─────────────────────────────────────────────────────────
 connectDB();
 

@@ -181,7 +181,7 @@ router.post(
             const lead = await Lead.findOneAndUpdate(
                 { outcomeToken: req.params.token, outcome: null },
                 { outcome: outcome },
-                { new: false } // Gives us the document as it was before the update
+                { returnDocument: 'before' } // Gives us the document as it was before the update
             ).populate('category', 'name externalId commissionType _id');
             
             if (!lead) {

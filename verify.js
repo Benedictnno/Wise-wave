@@ -75,7 +75,7 @@ async function verify() {
         console.log(`[Test] Invoice generated: ${result.invoice.invoiceNumber} at ${result.invoice.pdfPath}`);
         
         // Also check admin update status
-        const updatedInvoice = await Invoice.findByIdAndUpdate(result.invoice._id, { status: 'paid' }, { new: true });
+        const updatedInvoice = await Invoice.findByIdAndUpdate(result.invoice._id, { status: 'paid' }, { returnDocument: 'after' });
         await Commission.findByIdAndUpdate(result.invoice.commissionId, { commissionStatus: 'paid' });
         console.log(`[Test] Invoice status updated to ${updatedInvoice.status}`);
     } else {

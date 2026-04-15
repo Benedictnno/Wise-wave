@@ -256,7 +256,7 @@ router.patch('/:id/notes',
             const lead = await Lead.findByIdAndUpdate(
                 req.params.id,
                 { adminNotes: req.body.adminNotes },
-                { new: true }
+                { returnDocument: 'after' }
             );
             if (!lead) return res.status(404).json({ error: 'Lead not found' });
             return res.json(lead);
@@ -495,7 +495,7 @@ router.patch(
                     outcomeTokenExpiry: expiryDate,
                     outcome: null // reset outcome if re-assigning
                 },
-                { new: true }
+                { returnDocument: 'after' }
             ).populate('category');
 
             if (!lead) return res.status(404).json({ error: 'Lead not found' });
