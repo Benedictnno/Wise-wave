@@ -5,5 +5,4 @@ coverage/
 storage/temp_invoices/
 .agents/
 test_output.log
-Dockerfile
 *.log
