@@ -1,4 +1,9 @@
 node_modules/
 .env
-*.log
+coverage/
+.DS_Store
+storage/temp_invoices/
 .agents/
+test_output.log
+Dockerfile
+*.log

@@ -31,7 +31,10 @@ const evaluateQualification = async (answers) => {
     const activatedIds = new Set();
     
     for (const ans of answers) {
-        if (!ans.questionKey || !Array.isArray(ans.answerValues)) continue;
+        let values = ans.answerValues || ans.answer;
+        if (values && !Array.isArray(values)) values = [values];
+        
+        if (!ans.questionKey || !Array.isArray(values)) continue;
 
         const question = await QualificationQuestion.findOne({ 
             questionKey: ans.questionKey,
@@ -40,7 +43,7 @@ const evaluateQualification = async (answers) => {
         
         if (!question) continue;
         
-        for (const val of ans.answerValues) {
+        for (const val of values) {
             // Find option for this value
             const option = question.options.find(opt => opt.value === val);
             if (option && option.activatesServices) {

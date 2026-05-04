@@ -54,7 +54,7 @@ router.get('/unassigned', async (req, res) => {
         const { page = 1, limit = 50 } = req.query;
         const leads = await Lead.find({ status: 'unassigned' })
             .populate('category', 'name')
-            .sort({ createdAt: -1 })
+            .sort({ created_at: -1 })
             .skip((Number(page) - 1) * Number(limit))
             .limit(Number(limit));
         
@@ -202,6 +202,24 @@ router.delete('/:id', async (req, res) => {
         lead.postcode = 'REDACTED';
         
         await lead.save();
+
+        const User = require('../../models/User');
+        const File = require('../../models/File');
+        const LeadServiceAnswer = require('../../models/LeadServiceAnswer');
+        const LeadEvent = require('../../models/LeadEvent');
+
+        if (lead.user_id) {
+            await User.findByIdAndUpdate(lead.user_id, {
+                full_name: 'GDPR Deleted',
+                email: 'deleted@deleted.invalid',
+                phone: '00000000000',
+                home_postcode: 'REDACTED'
+            });
+        }
+        await File.deleteMany({ lead_id: lead._id });
+        await LeadServiceAnswer.deleteMany({ lead_id: lead._id });
+        await LeadEvent.deleteMany({ lead_id: lead._id });
+
         return res.json({ message: 'Lead personal data has been erased per GDPR' });
     } catch (err) {
         return res.status(500).json({ error: err.message });
@@ -400,16 +418,16 @@ router.get('/', async (req, res) => {
         if (typeof outcome === 'string') filter.outcome = outcome;
         
         if (dateFrom || dateTo) {
-            filter.createdAt = {};
-            if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
-            if (dateTo) filter.createdAt.$lte = new Date(dateTo);
+            filter.created_at = {};
+            if (dateFrom) filter.created_at.$gte = new Date(dateFrom);
+            if (dateTo) filter.created_at.$lte = new Date(dateTo);
         }
 
         const leads = await Lead.find(filter)
             .populate('category', 'name')
             .populate('assignedPartnerId', 'companyName email')
             .populate('introducerId', 'name email')
-            .sort({ createdAt: -1 })
+            .sort({ created_at: -1 })
             .skip((Number(page) - 1) * Number(limit))
             .limit(Number(limit));
 

@@ -6,6 +6,13 @@ const { body } = require('express-validator');
 const validate = require('../../middleware/validate');
 const Admin = require('../../models/Admin');
 const authMiddleware = require('../../middleware/auth');
+const rateLimit = require('express-rate-limit');
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5,
+    message: { error: 'Too many registration attempts — please try again later' },
+});
 
 /**
  * @openapi
@@ -43,6 +50,7 @@ const authMiddleware = require('../../middleware/auth');
 // POST /admin/auth/register
 router.post(
     '/register',
+    registerLimiter,
     authMiddleware,
     [
         body('username').trim().notEmpty().withMessage('Username is required'),
@@ -51,6 +59,11 @@ router.post(
     validate,
     async (req, res) => {
         try {
+            // Require superadmin role to create new admins
+            if (!req.admin || req.admin.role !== 'superadmin') {
+                return res.status(403).json({ error: 'Only superadmins can register new administrators' });
+            }
+
             const { username, password } = req.body;
 
             // Check if user already exists
@@ -142,7 +155,7 @@ router.post(
             }
 
             const token = jwt.sign(
-                { id: admin._id, username: admin.username },
+                { id: admin._id, username: admin.username, role: admin.role },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
             );

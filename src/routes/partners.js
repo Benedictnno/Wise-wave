@@ -150,7 +150,7 @@ router.post(
 
 // ─── Internal Email Helpers ───────────────────────────────────────────────────
 
-const sendPartnerWelcome = async (partner) => {
+async function sendPartnerWelcome(partner) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) return;
 
@@ -177,7 +177,7 @@ const sendPartnerWelcome = async (partner) => {
     });
 };
 
-const notifyAdminNewPartner = async (partner) => {
+async function notifyAdminNewPartner(partner) {
     const apiKey = process.env.RESEND_API_KEY;
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!apiKey || !adminEmail) return;

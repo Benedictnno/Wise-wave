@@ -11,18 +11,7 @@ const leadSchema = new mongoose.Schema({
     description: { type: String },
     service_type: { 
         type: String, 
-        required: true,
-        enum: [
-            'estateAgents', 'lettingsPropertyManagement', 'trades', 'epc', 'floorplans', 
-            'surveyors', 'removals', 'cleaning', 'amlKyc', 'homeInsurance', 
-            'landlordInsurance', 'auctionServices', 'solicitorsConveyancing', 
-            'willsEstatePlanning', 'lifeProtection', 'mortgageBrokerIntro', 'ifaIntro', 
-            'commercialPropertyServices', 'hrServices', 'commercialFinance', 
-            'businessLoans', 'assetFinance', 'invoiceFinance', 'developmentFinance', 
-            'bridgingFinance', 'rndTaxCredits', 'businessCoaching', 'itSupport', 
-            'webDesignDigital', 'accountancyBookkeeping', 'businessInsurance', 'ppiSmeInsurance',
-            'commercial-property-management', 'ifa', 'insurance-risk','compliance-support'
-        ]
+        required: true
     },
     property_postcode: { type: String, trim: true, uppercase: true },
     best_time_to_contact: { 

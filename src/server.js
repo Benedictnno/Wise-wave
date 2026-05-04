@@ -40,8 +40,8 @@ const { initCronJobs } = require('./services/reportService');
 initCronJobs();
 
 // ─── Startup Security Checks ──────────────────────────────────────────────────
-if (!process.env.JWT_SECRET) {
-    console.error('[FATAL] JWT_SECRET is not defined. Server refusing to start.');
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    console.error('[FATAL] JWT_SECRET must be at least 32 characters. Server refusing to start.');
     process.exit(1);
 }
 
@@ -63,7 +63,13 @@ app.use(helmet({
 }));
 app.use(cors({
     origin: (origin, callback) => {
-        const allowed = process.env.ALLOWED_ORIGINS || '*';
+        let allowed = process.env.ALLOWED_ORIGINS;
+        
+        if (process.env.NODE_ENV === 'production' && (!allowed || allowed === '*')) {
+            return callback(new Error('Strict CORS ALLOWED_ORIGINS required in production.'));
+        }
+        
+        allowed = allowed || '*';
         if (allowed === '*') return callback(null, true);
         
         const origins = allowed.split(',').map(o => o.trim());

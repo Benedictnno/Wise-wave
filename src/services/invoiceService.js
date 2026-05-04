@@ -29,78 +29,85 @@ const generateInvoice = async (lead, commission) => {
 
     // ── 1. Create Initial Invoice Record (M-10: needed for redundant ID in Stripe) ──
     const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    const invoice = await Invoice.create({
-        invoiceNumber,
-        leadId: lead._id,
-        partnerId: partner._id,
-        commissionId: commission._id,
-        amount: commission.wisemoveShare,
-        status: 'unpaid',
-        dueDate,
-    });
+    let invoice = null;
+    let pdfPath = null;
 
-    // ── 2. Create Payment Link (Removed per No Payment Processing Rule) ──
-    const paymentInstructions = "Please pay via direct bank transfer. Bank Details: ...";
+    try {
+        invoice = await Invoice.create({
+            invoiceNumber,
+            leadId: lead._id,
+            partnerId: partner._id,
+            commissionId: commission._id,
+            amount: commission.wisemoveShare,
+            status: 'unpaid',
+            dueDate,
+        });
 
+        // ── 2. Create Payment Link (Removed per No Payment Processing Rule) ──
+        const paymentInstructions = "Please pay via direct bank transfer. Bank Details: ...";
 
-    // ── 3. Build PDF ────────────────────────────────────────────────────────────
-    const tempInvoicesDir = path.join(__dirname, '../../storage/temp_invoices');
-    if (!fs.existsSync(tempInvoicesDir)) fs.mkdirSync(tempInvoicesDir, { recursive: true });
+        // ── 3. Build PDF ────────────────────────────────────────────────────────────
+        const tempInvoicesDir = path.join(__dirname, '../../storage/temp_invoices');
+        if (!fs.existsSync(tempInvoicesDir)) fs.mkdirSync(tempInvoicesDir, { recursive: true });
 
-    const pdfPath = path.join(tempInvoicesDir, `${invoiceNumber}.pdf`);
-    const doc = new PDFDocument({ margin: 50 });
-    const writeStream = fs.createWriteStream(pdfPath);
-    doc.pipe(writeStream);
+        pdfPath = path.join(tempInvoicesDir, `${invoiceNumber}.pdf`);
+        const doc = new PDFDocument({ margin: 50 });
+        const writeStream = fs.createWriteStream(pdfPath);
+        doc.pipe(writeStream);
 
-    // Header
-    doc.fontSize(20).text('WiseMove Connect', { align: 'right' });
-    doc.fontSize(10).text('Invoice & Payment Receipt', { align: 'right' });
-    doc.moveDown();
+        // Header
+        doc.fontSize(20).text('WiseMove Connect', { align: 'right' });
+        doc.fontSize(10).text('Invoice & Payment Receipt', { align: 'right' });
+        doc.moveDown();
 
-    // Bill To
-    doc.fontSize(12).text('Billed To:');
-    doc.fontSize(10).text(`Partner: ${partner.companyName}`);
-    doc.text(`Contact: ${partner.contactName}`);
-    doc.text(`Email: ${partner.email}`);
-    doc.moveDown();
+        // Bill To
+        doc.fontSize(12).text('Billed To:');
+        doc.fontSize(10).text(`Partner: ${partner.companyName}`);
+        doc.text(`Contact: ${partner.contactName}`);
+        doc.text(`Email: ${partner.email}`);
+        doc.moveDown();
 
-    // Details
-    doc.text(`Invoice Number: ${invoiceNumber}`);
-    doc.text(`Reference ID: ${lead.referenceId}`);
-    doc.text(`Issue Date: ${new Date().toLocaleDateString('en-GB')}`);
-    doc.text(`Due Date: ${dueDate.toLocaleDateString('en-GB')}`);
-    doc.moveDown();
+        // Details
+        doc.text(`Invoice Number: ${invoiceNumber}`);
+        doc.text(`Reference ID: ${lead.referenceId}`);
+        doc.text(`Issue Date: ${new Date().toLocaleDateString('en-GB')}`);
+        doc.text(`Due Date: ${dueDate.toLocaleDateString('en-GB')}`);
+        doc.moveDown();
 
-    // Amount
-    doc.fontSize(14).text(`Total Amount Due: £${commission.wisemoveShare.toFixed(2)}`, { bold: true });
-    doc.moveDown();
+        // Amount
+        doc.fontSize(14).text(`Total Amount Due: £${commission.wisemoveShare.toFixed(2)}`, { bold: true });
+        doc.moveDown();
 
-    doc.fontSize(12).fillColor('black').text(paymentInstructions);
-    doc.moveDown(2);
+        doc.fontSize(12).fillColor('black').text(paymentInstructions);
+        doc.moveDown(2);
 
-    doc.fontSize(10).text('Payment is due within 14 days. Thank you.', { align: 'center' });
-    doc.end();
+        doc.fontSize(10).text('Payment is due within 14 days. Thank you.', { align: 'center' });
+        doc.end();
 
-    await new Promise((resolve, reject) => {
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
-    });
+        await new Promise((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+        });
 
-    // ── 4. Upload to Cloudinary ─────────────────────────────────────────────────
-    let cloudinaryResult = await cloudinary.uploader.upload(pdfPath, {
-        folder: 'wisemove/invoices',
-        public_id: invoiceNumber,
-        resource_type: 'raw',
-    });
-    if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        // ── 4. Upload to Cloudinary ─────────────────────────────────────────────────
+        let cloudinaryResult = await cloudinary.uploader.upload(pdfPath, {
+            folder: 'wisemove/invoices',
+            public_id: invoiceNumber,
+            resource_type: 'raw',
+        });
+        if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
 
-    // ── 5. Finalize Invoice ──────────────────────────────────────────────────────
-    invoice.pdfPath = cloudinaryResult.secure_url;
-    // stripePaymentLinkId and url removed
-    await invoice.save();
+        // ── 5. Finalize Invoice ──────────────────────────────────────────────────────
+        invoice.pdfPath = cloudinaryResult.secure_url;
+        await invoice.save();
 
-    await sendInvoiceEmail(invoice, partner);
-    return invoice;
+        await sendInvoiceEmail(invoice, partner);
+        return invoice;
+    } catch (err) {
+        if (invoice) await Invoice.findByIdAndDelete(invoice._id);
+        if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        throw err;
+    }
 };
 
 const sendInvoiceEmail = async (invoice, partner) => {

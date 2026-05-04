@@ -102,8 +102,7 @@ router.post(
         body('agreePrivacyPolicy').isBoolean().custom(v => v === true).withMessage('Privacy policy agreement is required'),
         
         // QA G.4 bot protection
-        body('honeypot').custom(val => !val || val === '').withMessage('Bot detected'),
-        body('recaptchaToken').optional().isString() // Assume verified by middleware later
+        body('honeypot').custom(val => !val || val === '').withMessage('Bot detected')
     ],
     validate,
     async (req, res) => {
@@ -149,7 +148,7 @@ router.post(
                 phone: phone,         // Mapping legacy
                 category: catObj ? catObj._id : null,
                 description: additionalDetails, // Mapping legacy
-                service_type: serviceType,
+                service_type: catObj && catObj.serviceSlug ? catObj.serviceSlug : serviceType,
                 property_postcode: propertyPostcode || homePostcode || '',
                 best_time_to_contact: bestTimeToContact,
                 budget_band: budget,

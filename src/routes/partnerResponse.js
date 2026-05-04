@@ -67,7 +67,7 @@ router.get('/:token', async (req, res) => {
     try {
         const lead = await Lead.findOne({ outcomeToken: req.params.token })
             .populate('category', 'name externalId commissionType _id')
-            .select('name postcode description createdAt outcome partnerFee outcomeTokenExpiry');
+            .select('referenceId createdAt outcome partnerFee outcomeTokenExpiry');
         
         if (!lead) return res.status(404).json({ error: 'Invalid or missing outcome link' });
         
@@ -275,13 +275,19 @@ router.post(
         body('revenueAmount').isFloat({ min: 1 }).withMessage('Revenue amount must be greater than 0'),
         body('revenueDate').isISO8601().withMessage('Valid date is required'),
         body('yearNumber').optional().isInt({ min: 1, max: 10 }),
+        body('partnerId').isMongoId().withMessage('Partner ID is required'),
     ],
     validate,
     async (req, res) => {
         try {
-            const { revenueAmount, revenueDate, yearNumber } = req.body;
+            const { revenueAmount, revenueDate, yearNumber, partnerId } = req.body;
             const lead = await Lead.findOne({ revenueToken: req.params.revenueToken }).populate('category', 'name externalId commissionType _id');
             if (!lead) return res.status(404).json({ error: 'Invalid or missing revenue tracking token' });
+            
+            if (lead.assignedPartnerId.toString() !== partnerId) {
+                return res.status(403).json({ error: 'Unauthorized: Partner does not own this lead' });
+            }
+
             const category = lead.category;
             if (!category || category.externalId !== 'svc_025') {
                 return res.status(400).json({ error: 'Revenue reporting is only applicable to R&D Tax Services (svc_025)' });

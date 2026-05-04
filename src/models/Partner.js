@@ -13,6 +13,11 @@ const partnerSchema = new mongoose.Schema({
     status: { type: String, enum: ['active', 'inactive', 'pending'], default: 'active' },
 
     // New API Spec mappings (aliased or matched)
+    categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+    subservices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subservice' }],
+    postcodes: [{ type: String }],
+    agreementAccepted: { type: Boolean, default: false },
+    agreementTimestamp: { type: Date, default: null },
     business_name: { type: String, trim: true }, // Keeping for alias compatibility
     contact_name: { type: String, trim: true }, // Keeping for alias compatibility
     office_postcode: { type: String, required: true, trim: true, uppercase: true },

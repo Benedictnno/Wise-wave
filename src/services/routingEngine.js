@@ -48,7 +48,8 @@ const getEligiblePartners = async (lead) => {
 
             const assignedCount = await LeadPartnerAssignment.countDocuments({
                 partner_id: partner._id,
-                assigned_at: { $gte: currentMonthStart }
+                assigned_at: { $gte: currentMonthStart },
+                assignment_status: { $in: ['assigned', 'accepted'] }
             });
 
             if (assignedCount < partner.max_leads_per_month) {
@@ -113,7 +114,9 @@ const routeLead = async (lead) => {
         event_data: { partner_id: selectedPartner._id }
     });
 
-    dispatchNotifications(lead, selectedPartner);
+    const Category = require('../models/Category');
+    const category = await Category.findById(lead.category);
+    dispatchNotifications(lead, selectedPartner, category);
 
     return { success: true, partner: selectedPartner };
 };

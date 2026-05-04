@@ -5,15 +5,15 @@ const Invoice = require('../models/Invoice');
 /**
  * Basic commission calculation based on rule type.
  */
-const calculateCommission = (rule, partnerFee = 0) => {
+const calculateCommission = (rule, partnerFee = 0, rdTaxYear = null) => {
     switch (rule.type) {
         case 'fixed':
             return rule.fixedAmount;
         case 'percentage':
             return partnerFee * (rule.percentage / 100);
         case 'tiered':
-            // R&D Tax logic would go here
-            return partnerFee * 0.20; // default 20% for year 1
+            const rate = rdTaxYear === 2 ? 0.10 : (rdTaxYear >= 3 ? 0 : 0.20);
+            return partnerFee * rate;
         default:
             return 0;
     }
