@@ -26,14 +26,14 @@ const leadSchema = new mongoose.Schema({
     },
     urgency: { 
         type: String, 
-        enum: ['asap', '48_hours', '1_week', '1_2_months', '3_plus_months', 'researching'], 
+        enum: ['asap', '48_hours', '1_week', '1_2_months', '1_3_months', '3_plus_months', 'researching'], 
         required: true 
     },
     additional_details: { type: String, required: true },
     how_did_you_hear: { 
         type: String, 
-        enum: ['estate_agent', 'google', 'social', 'referral', 'other'], 
-        required: true 
+        enum: ['estate_agent', 'google', 'social', 'referral', 'other', ''], 
+        default: ''
     },
 
     // Scoring fields

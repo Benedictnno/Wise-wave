@@ -92,8 +92,8 @@ router.post(
         // A.3 Additional Info
         body('additionalDetails').isString().isLength({ min: 5 }).withMessage('Must be at least 5 characters'),
         body('budget').isIn(['5000_plus', '1000_4999', '500_999', '1_499', 'not_sure']),
-        body('urgency').isIn(['asap', '48_hours', '1_week', '1_2_months', '3_plus_months', 'researching']),
-        body('howDidYouHear').isIn(['estate_agent', 'google', 'social', 'referral', 'other']),
+        body('urgency').isIn(['asap', '48_hours', '1_week', '1_2_months', '1_3_months', '3_plus_months', 'researching']),
+        body('howDidYouHear').optional({ checkFalsy: true }).isIn(['estate_agent', 'google', 'social', 'referral', 'other', '']),
         body('fileUpload').optional().isArray(),
 
         // A.4 Compliance

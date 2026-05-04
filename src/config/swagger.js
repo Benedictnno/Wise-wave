@@ -122,8 +122,8 @@ const options = {
                         additionalDetails: { type: 'string', example: 'Looking for advice on a remortgage in the next 4–8 weeks.' },
                         intentSignals: { type: 'object', additionalProperties: true, example: { page: 'mortgage', source: 'google' } },
                         budget: { type: 'string', enum: ['5000_plus', '1000_4999', '500_999', '1_499', 'not_sure'], example: 'not_sure' },
-                        urgency: { type: 'string', enum: ['asap', '48_hours', '1_week', '1_2_months', '3_plus_months', 'researching'], example: '1_2_months' },
-                        howDidYouHear: { type: 'string', enum: ['estate_agent', 'google', 'social', 'referral', 'other'], example: 'google' },
+                        urgency: { type: 'string', enum: ['asap', '48_hours', '1_week', '1_2_months', '1_3_months', '3_plus_months', 'researching'], example: '1_3_months' },
+                        howDidYouHear: { type: 'string', enum: ['estate_agent', 'google', 'social', 'referral', 'other', ''], example: 'google' },
                         fileUpload: {
                             type: 'array',
                             items: {

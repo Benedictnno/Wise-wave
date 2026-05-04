@@ -21,7 +21,8 @@ const calculateScore = (reqBody) => {
         case 'asap': breakdown.urgency = 20; break;
         case '48_hours': breakdown.urgency = 15; break;
         case '1_week': breakdown.urgency = 10; break;
-        case '1_2_months': breakdown.urgency = 5; break;
+        case '1_2_months':
+        case '1_3_months': breakdown.urgency = 5; break;
         default: breakdown.urgency = 0; break;
     }
 
