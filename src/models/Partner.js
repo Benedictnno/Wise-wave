@@ -35,11 +35,10 @@ const partnerSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // Pre-save to sync legacy and new spec names
-partnerSchema.pre('save', function(next) {
+partnerSchema.pre('save', async function() {
     if (this.business_name && !this.companyName) this.companyName = this.business_name;
     if (this.contact_name && !this.contactName) this.contactName = this.contact_name;
     if (this.status === 'inactive') this.active = false;
-    next();
 });
 
 module.exports = mongoose.model('Partner', partnerSchema);
