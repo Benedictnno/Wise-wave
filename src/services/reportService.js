@@ -111,6 +111,63 @@ const sendOverdueInvoiceReminders = async () => {
     }
 };
 
+// ─── 30-Day Awaiting Payment Reminders ──────────────────────────────────────────────
+const sendAwaitingPaymentReminders = async () => {
+    try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        // Leads awaiting payment where no reminder sent, or last reminder was 30+ days ago
+        const leads = await Lead.find({
+            status: 'awaiting_partner_payment',
+            won_date: { $lte: thirtyDaysAgo },
+            $or: [
+                { last_reminder_sent_at: null },
+                { last_reminder_sent_at: { $lte: thirtyDaysAgo } }
+            ]
+        });
+
+        const apiKey = process.env.RESEND_API_KEY;
+        if (!apiKey || leads.length === 0) return;
+
+        const frontendUrl = process.env.FRONTEND_URL || 'https://wisemoveconnect.com';
+
+        for (const lead of leads) {
+            const partner = await Partner.findById(lead.assignedPartnerId);
+            if (!partner || !partner.email) continue;
+
+            const daysSinceWon = Math.floor((now - new Date(lead.won_date)) / (1000 * 60 * 60 * 24));
+            const confirmUrl = `${frontendUrl}/outcome/${lead.outcomeToken}/confirm-payment`;
+
+            await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                    to: partner.email,
+                    subject: `Reminder — Please Confirm Customer Payment | WiseMove Connect`,
+                    text:
+                        `Dear ${partner.companyName},\n\n` +
+                        `This is a reminder regarding lead ${lead.referenceId}.\n\n` +
+                        `It has been ${daysSinceWon} days since you marked this lead as Won. ` +
+                        `We have not yet received confirmation that the customer has paid you.\n\n` +
+                        `Once you have received payment, please click the link below:\n` +
+                        `${confirmUrl}\n\n` +
+                        `If you have any questions, please contact us at hello@wisemoveconnect.com\n\n` +
+                        `WiseMove Connect`,
+                }),
+            });
+
+            lead.last_reminder_sent_at = now;
+            await lead.save();
+
+            console.log(`[Reminder] Sent 30-day payment reminder for lead ${lead.referenceId} to ${partner.email}`);
+        }
+    } catch (err) {
+        console.error('[Reminder] Error in sendAwaitingPaymentReminders:', err.message);
+    }
+};
+
 const recoverPendingDeliveries = async () => {
     try {
         const Introduction = require('../models/Introduction');
@@ -191,7 +248,12 @@ const initCronJobs = () => {
         await monitorSLAExpiry();
     });
 
-    console.log('[Cron] reporting, overdue reminders, regenerators, SLA and recovery jobs scheduled');
+    // Daily 30-day payment reminder check — runs at 10:00 every day
+    cron.schedule('0 10 * * *', async () => {
+        await sendAwaitingPaymentReminders();
+    });
+
+    console.log('[Cron] reporting, overdue reminders, regenerators, SLA, recovery and payment reminder jobs scheduled');
 };
 
-module.exports = { initCronJobs, generateMonthlyReport, sendOverdueInvoiceReminders };
+module.exports = { initCronJobs, generateMonthlyReport, sendOverdueInvoiceReminders, sendAwaitingPaymentReminders };

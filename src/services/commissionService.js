@@ -20,13 +20,15 @@ const calculateCommission = (rule, partnerFee = 0, rdTaxYear = null) => {
 };
 
 /**
- * Calculate the 30/70 split.
+ * Calculate the 70/30 split.
+ * Introducer receives 70%; WiseMove retains 30%.
  */
 const calculateShares = (totalValue, hasIntroducer) => {
     if (!hasIntroducer) {
         return { introducerShare: 0, wisemoveShare: totalValue };
     }
-    const introducerShare = Number((totalValue * 0.30).toFixed(2));
+    // CORRECT: 70% to introducer, 30% to platform
+    const introducerShare = Number((totalValue * 0.70).toFixed(2));
     const wisemoveShare = Number((totalValue - introducerShare).toFixed(2));
     return { introducerShare, wisemoveShare };
 };
@@ -42,7 +44,7 @@ const applySplit = async (commission) => {
     const introducer = await Introducer.findById(commission.introducerId);
     if (!introducer) return { introducerShare: 0, wisemoveShare: commission.commissionValue };
 
-    // Use shared calculation helper for 30/70
+    // Use shared calculation helper for 70/30 (introducer/platform)
     const { introducerShare, wisemoveShare } = calculateShares(commission.commissionValue, true);
     
     // 3. Update the commission record with actual shares calculated at payout time

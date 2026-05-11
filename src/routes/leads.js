@@ -88,6 +88,8 @@ router.post(
         // A.2 Service
         body('serviceType').trim().notEmpty().withMessage('Valid service type is required'),
         body('serviceSpecificQuestions').optional().isObject(),
+        body('selectedServices').optional().isArray().withMessage('selectedServices must be an array'),
+        body('selectedServices.*').optional().isMongoId().withMessage('Each service must be a valid ID'),
         
         // A.3 Additional Info
         body('additionalDetails').isString().isLength({ min: 5 }).withMessage('Must be at least 5 characters'),
@@ -109,7 +111,7 @@ router.post(
         try {
             const {
                 fullName, email, phone, preferredContactMethod, homePostcode, propertyPostcode, bestTimeToContact, // Step 1
-                serviceType, serviceSpecificQuestions, // Step 2
+                serviceType, serviceSpecificQuestions, selectedServices, // Step 2
                 additionalDetails, intentSignals, budget, urgency, howDidYouHear, fileUpload, // Step 3
                 understandIntroducer, consentToShare, agreePrivacyPolicy // Step 4
             } = req.body;
@@ -128,10 +130,17 @@ router.post(
                 });
             }
 
-            // Verify Category ID / Service ID alignment (stubbed lookup if needed)
-            // Some old logic expects lead.category to be set to the ObjectId of Category
-            let catObj = await Category.findOne({ name: serviceType });
-            if (!catObj) catObj = await Category.findOne(); // Fallback if name mapping fails
+            // Resolve primary category — prefer first selected service ID, fall back to name lookup
+            let catObj = null;
+            if (selectedServices && selectedServices.length > 0) {
+                catObj = await Category.findById(selectedServices[0]);
+            }
+            if (!catObj) {
+                catObj = await Category.findOne({ name: serviceType, isActive: true });
+            }
+            if (!catObj) {
+                catObj = await Category.findOne(); // last-resort fallback
+            }
 
             // 3. Generate Reference ID
             const referenceId = await generateReferenceId('WMC');
@@ -155,6 +164,7 @@ router.post(
                 urgency: urgency,
                 additional_details: additionalDetails,
                 how_did_you_hear: howDidYouHear,
+                selected_services: selectedServices || [],
                 status: 'new',
                 outcomeToken: uuidv4(),
                 outcomeTokenExpiry: expiryDate

@@ -201,8 +201,23 @@ router.post(
 
             const result = await processPartnerResponse(lead, outcome, partnerFee, notes);
             
-            // clear the one-time link fields
-            await Lead.updateOne({ _id: lead._id }, { outcomeToken: null, outcomeTokenExpiry: null });
+            // For won outcomes: keep the outcomeToken alive so the partner can use it
+            // in the confirm-payment step. Clear it only for lost / not_suitable.
+            if (outcome !== 'won') {
+                await Lead.updateOne({ _id: lead._id }, { outcomeToken: null, outcomeTokenExpiry: null });
+            }
+
+            // Fire the payment confirmation request email for won outcomes
+            if (outcome === 'won' && result.lead.status === 'awaiting_partner_payment') {
+                const Partner = require('../models/Partner');
+                const partner = await Partner.findById(result.lead.assignedPartnerId);
+                if (partner) {
+                    const { sendPartnerPaymentConfirmationRequest } = require('../services/notificationEngine');
+                    sendPartnerPaymentConfirmationRequest(result.lead, partner).catch(e =>
+                        console.error('[Won] Failed to send payment confirmation request:', e.message)
+                    );
+                }
+            }
 
             return res.status(200).json({ message: 'Outcome recorded successfully', data: result });
         } catch (err) {
@@ -340,6 +355,80 @@ router.post(
             return res.status(200).json({ message: 'Revenue submitted and invoiced successfully.', invoice, commission });
         } catch (err) {
             console.error('[POST /api/partner-response/:id/revenue]', err.message);
+            return res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+/**
+ * POST /api/partner-response/:token/confirm-payment
+ * Partner confirms they have received payment from the customer.
+ * This triggers commission calculation and invoice generation.
+ */
+router.post(
+    '/:token/confirm-payment',
+    [
+        body('partnerFee').optional().isFloat({ min: 0 }).withMessage('Partner fee must be a valid number'),
+    ],
+    validate,
+    async (req, res) => {
+        try {
+            const lead = await Lead.findOne({
+                outcomeToken: req.params.token,
+                status: 'awaiting_partner_payment'
+            }).populate('category', 'name externalId commissionType _id');
+
+            if (!lead) {
+                return res.status(404).json({
+                    error: 'Invalid token, or this lead is not awaiting payment confirmation.'
+                });
+            }
+
+            const CommissionRule = require('../models/CommissionRule');
+            const Commission = require('../models/Commission');
+            const { calculateCommission, calculateShares } = require('../services/commissionService');
+            const { generateInvoice } = require('../services/invoiceService');
+
+            const rule = await CommissionRule.findOne({ categoryId: lead.category._id });
+            if (!rule) return res.status(400).json({ error: 'No commission rule found for this category' });
+
+            // Use stored partnerFeeTotal, or override with body value if supplied
+            const fee = req.body.partnerFee || lead.partnerFeeTotal || 0;
+            const totalCommission = calculateCommission(rule, fee);
+            const { introducerShare, wisemoveShare } = calculateShares(totalCommission, !!lead.introducerId);
+
+            const commission = await Commission.create({
+                leadId: lead._id,
+                partnerId: lead.assignedPartnerId,
+                categoryId: lead.category._id,
+                commissionType: rule.type,
+                commissionValue: totalCommission,
+                introducerId: lead.introducerId || null,
+                introducerShare,
+                wisemoveShare,
+                notes: 'Partner confirmed customer payment received',
+                commissionStatus: 'unpaid',
+            });
+
+            const invoice = await generateInvoice(lead, commission);
+
+            lead.status = 'partner_paid';
+            lead.invoiceId = invoice ? invoice._id : null;
+            lead.paymentStatus = invoice ? 'invoiced' : 'not_invoiced';
+            // Clear the outcome token now that the full flow is complete
+            lead.outcomeToken = null;
+            lead.outcomeTokenExpiry = null;
+            await lead.save();
+
+            console.log(`[ConfirmPayment] Invoice generated for lead ${lead.referenceId}`);
+
+            return res.status(200).json({
+                message: 'Payment confirmed. Your invoice has been generated and emailed.',
+                invoice,
+                commission,
+            });
+        } catch (err) {
+            console.error('[POST /api/partner-response/:token/confirm-payment]', err.message);
             return res.status(500).json({ error: err.message });
         }
     }

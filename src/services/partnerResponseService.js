@@ -3,12 +3,12 @@ const Commission = require('../models/Commission');
 const CommissionRule = require('../models/CommissionRule');
 const Introduction = require('../models/Introduction');
 const PartnerResponse = require('../models/PartnerResponse');
-const { generateInvoice } = require('./invoiceService');
 const { calculateCommission } = require('./commissionService');
 
 /**
  * Processes a partner's outcome submission.
- * Validates the fee for 'won' deals, computes commission based on CommissionRule, updates lead, and generates invoice.
+ * For 'won' outcomes, parks the lead at awaiting_partner_payment.
+ * Invoice is generated only after the partner confirms customer payment via the confirm-payment endpoint.
  */
 const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
     lead.outcome = outcome;
@@ -28,46 +28,34 @@ const processPartnerResponse = async (lead, outcome, partnerFee, notes) => {
         const rule = await CommissionRule.findOne({ categoryId: lead.category._id });
         if (!rule) throw new Error('Commission rule not found for this category');
 
-        // H-1: Special case for R&D (svc_025) where revenue is triggered later
-        if (lead.category.externalId === 'svc_025') {
+        // Special case: R&D Tax — revenue is reported later via revenue token
+        if (lead.category.externalId === 'PA-024' || lead.category.externalId === 'svc_025') {
             lead.partnerFeeTotal = partnerFee || 0;
             const { v4: uuidv4 } = require('uuid');
             lead.revenueToken = lead.revenueToken || uuidv4();
             await lead.save();
-            return { partnerResponse, lead, message: 'Outcome recorded. Please submit revenue details using your unique tracking link when engagement completes.' };
+            return {
+                partnerResponse,
+                lead,
+                message: 'Outcome recorded. Please submit revenue details using your unique tracking link when engagement completes.'
+            };
         }
 
-        // Validations
         if ((rule.type === 'percentage') && (!partnerFee || partnerFee <= 0)) {
             throw new Error('Partner fee is required for percentage commissions');
         }
 
+        // TWO-STEP FLOW: store fee, set status to awaiting payment, do NOT invoice yet
         lead.partnerFeeTotal = partnerFee || 0;
+        lead.won_date = new Date();
+        lead.status = 'awaiting_partner_payment';
         await lead.save();
 
-        const totalCommissionAmount = calculateCommission(rule, partnerFee);
-
-        // Create the Commission record (Initial state: unpaid, no split calculated until payment)
-        const commission = await Commission.create({
-            leadId: lead._id,
-            partnerId: lead.assignedPartnerId,
-            categoryId: lead.category._id,
-            commissionType: rule.type,
-            commissionValue: totalCommissionAmount,
-            introducerId: lead.introducerId || null,
-            introducerShare: 0, // split determined by async applySplit on payment
-            wisemoveShare: totalCommissionAmount,
-            notes: notes || 'Outcome: Won',
-            commissionStatus: 'unpaid'
-        });
-
-        // Generate Invoice for the FULL commission value (WiseMove's primary collectable)
-        const invoice = await generateInvoice(lead, commission);
-        lead.invoiceId = invoice ? invoice._id : null;
-        lead.paymentStatus = invoice ? 'invoiced' : 'not_invoiced';
-        await lead.save();
-
-        return { partnerResponse, lead, commission, invoice };
+        return {
+            partnerResponse,
+            lead,
+            message: 'Outcome recorded. Once you have been paid by the customer, click the confirmation link to generate your invoice.'
+        };
     }
 
     // For lost or not_suitable, just save and return lead

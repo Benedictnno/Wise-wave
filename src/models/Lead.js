@@ -47,7 +47,12 @@ const leadSchema = new mongoose.Schema({
     // Routing fields
     status: { 
         type: String, 
-        enum: ['new', 'assigned', 'returned', 'reassigned', 'completed', 'manual_review', 'unassigned'],
+        enum: [
+            'new', 'assigned', 'returned', 'reassigned', 'completed',
+            'manual_review', 'unassigned',
+            'awaiting_partner_payment',  // partner marked as Won; waiting for them to confirm receipt
+            'partner_paid'               // partner confirmed they received customer payment
+        ],
         default: 'new'
     },
     current_partner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
@@ -56,8 +61,11 @@ const leadSchema = new mongoose.Schema({
     outcomeTokenExpiry: { type: Date, default: null },
     revenueToken: { type: String, unique: true, sparse: true },
     outcome: { type: String, enum: ['won', 'lost', 'not_suitable', null], default: null },
+    won_date: { type: Date, default: null },
+    last_reminder_sent_at: { type: Date, default: null },
     partnerFeeTotal: { type: Number, default: 0 },
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', default: null },
+    selected_services: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
     paymentStatus: {
         type: String,
         enum: ['not_invoiced', 'invoiced', 'paid', 'reversed'],

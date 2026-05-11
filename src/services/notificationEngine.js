@@ -202,21 +202,88 @@ const notifyAdminFailed = async (lead, partner) => {
 // ─── Lead Submitter Confirmation ──────────────────────────────────────────────
 const sendLeadConfirmation = async (lead, category) => {
     const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) return false;
+    if (!apiKey) {
+        console.error('[Confirmation Email] RESEND_API_KEY is not set — email skipped');
+        return false;
+    }
 
-    const disclaimer = category?.isRegulated ? '\n\nNote: WiseMove Connect provides introductions only and does not offer mortgage or financial advice.' : '';
+    const subject = 'Your Request Has Been Received — WiseMove Connect';
 
-    const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-            from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
-            to: lead.email,
-            subject: 'We received your enquiry — WiseMove Connect',
-            text: `Hi ${lead.name},\n\nWe received your enquiry (${lead.referenceId}) and will match you shortly.${disclaimer}\n\nWiseMove Connect`,
-        }),
-    });
-    return response.ok;
+    const body =
+        `Hi ${lead.name},\n\n` +
+        `Thank you — your request has been submitted.\n\n` +
+        `A trusted specialist partner will contact you directly using your preferred contact method.\n\n` +
+        `What happens next:\n` +
+        `• Your request has been securely shared with the most suitable partner.\n` +
+        `• They will contact you within 24–48 hours depending on availability.\n` +
+        `• WiseMove Connect is an introduction‑only platform — we do not provide advice or recommendations.\n\n` +
+        `Need to update your request?\n` +
+        `Email us at hello@wisemoveconnect.com\n\n` +
+        `Your information is secure\n` +
+        `Your details are protected using industry‑standard security and GDPR‑compliant processes.\n\n` +
+        `Thank you,\n` +
+        `WiseMove Connect`;
+
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                to: lead.email,
+                subject,
+                text: body,
+            }),
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            console.error('[Confirmation Email] Resend API error:', err);
+            return false;
+        }
+
+        console.log(`[Confirmation Email] Sent to ${lead.email} for lead ${lead.referenceId}`);
+        return true;
+    } catch (err) {
+        console.error('[Confirmation Email] Exception:', err.message);
+        return false;
+    }
 };
 
-module.exports = { dispatchNotifications, notifyAdminUnassigned, sendLeadConfirmation };
+// ─── Partner Payment Confirmation Request ─────────────────────────────────────
+const sendPartnerPaymentConfirmationRequest = async (lead, partner) => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) return false;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://wisemoveconnect.com';
+    const confirmUrl = `${frontendUrl}/outcome/${lead.outcomeToken}/confirm-payment`;
+
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+                from: process.env.EMAIL_FROM || 'noreply@wisemoveconnect.com',
+                to: partner.email,
+                subject: `Action Required — Confirm Customer Payment | WiseMove Connect`,
+                text:
+                    `Dear ${partner.companyName},\n\n` +
+                    `Thank you for updating the outcome on lead ${lead.referenceId}.\n\n` +
+                    `Once you have received payment from the customer, please click the link below to confirm.\n` +
+                    `This will trigger your invoice from WiseMove Connect.\n\n` +
+                    `Confirm payment received:\n${confirmUrl}\n\n` +
+                    `If you have not yet received payment, please ignore this email until you have.\n\n` +
+                    `WiseMove Connect`,
+            }),
+        });
+        return response.ok;
+    } catch (err) {
+        console.error('[PaymentConfirm Email] Exception:', err.message);
+        return false;
+    }
+};
+
+module.exports = { dispatchNotifications, notifyAdminUnassigned, sendLeadConfirmation, sendPartnerPaymentConfirmationRequest };

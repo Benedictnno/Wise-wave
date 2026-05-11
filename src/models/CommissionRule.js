@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const commissionRuleSchema = new mongoose.Schema({
     categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true, unique: true },
-    type: { type: String, enum: ['fixed', 'percentage'], required: true },
+    type: { type: String, enum: ['fixed', 'percentage', 'tiered'], required: true },
     fixedAmount: { type: Number, default: 0 },
     percentage: { type: Number, default: 0 },
     wisemoveShare: { type: Number, default: 100 },
