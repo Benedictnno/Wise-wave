@@ -114,6 +114,11 @@ const options = {
                         propertyPostcode: { type: 'string', example: 'SW1A 2AA' },
                         bestTimeToContact: { type: 'string', enum: ['morning', 'afternoon', 'evening', 'anytime'], example: 'anytime' },
                         serviceType: { type: 'string', example: 'Mortgage Broker' },
+                        selectedServices: {
+                            type: 'array',
+                            items: { type: 'string', description: 'Category ObjectID' },
+                            example: ['65f1234567890abcdef12345', '65f1234567890abcdef67890']
+                        },
                         serviceSpecificQuestions: {
                             type: 'object',
                             additionalProperties: true,

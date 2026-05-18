@@ -26,15 +26,21 @@ const CategoryRelationship = require('../models/CategoryRelationship');
  *                   name:
  *                     type: string
  *                     example: "Mortgage Broker"
+ *                   slug:
+ *                     type: string
+ *                     example: "mortgage-broker"
  *                   commissionType:
  *                     type: string
- *                     enum: [percentage, fixed]
+ *                     enum: [percentage, fixed, tiered]
  *                   description:
  *                     type: string
  *                   isRegulated:
  *                     type: boolean
  *                   disclaimer:
  *                     type: string
+ *                   pillarId:
+ *                     type: string
+ *                     example: "Property Services"
  *       500:
  *         description: Internal server error
  */

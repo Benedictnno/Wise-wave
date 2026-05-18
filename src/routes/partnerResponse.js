@@ -89,8 +89,10 @@ router.get('/:token', async (req, res) => {
  *   post:
  *     summary: Submit lead outcome
  *     description: >
- *       Submits a partner outcome using a one-time secure token. The token is consumed after a successful submission.
- *       If the deal is won, the backend may create a commission and an invoice (except for R&D where revenue is reported later).
+ *       Submits a partner outcome using a one-time secure token.
+ *       For "won" outcomes, the lead is parked in "awaiting_partner_payment" status and the token is preserved
+ *       so the partner can later confirm receipt of customer payment via /confirm-payment.
+ *       For "lost" or "not_suitable", the lead is closed and the token consumed.
  *     tags: [Partners]
  *     parameters:
  *       - in: path
@@ -118,26 +120,32 @@ router.get('/:token', async (req, res) => {
  *               value: { outcome: "lost", notes: "Client already had a provider." }
  *     responses:
  *       200:
- *         description: Outcome recorded
+ *         description: Outcome recorded successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
- *               required: [message, data]
+ *               required: [message, result]
  *               properties:
  *                 message: { type: string, example: "Outcome recorded successfully" }
- *                 data:
+ *                 result:
  *                   type: object
- *                   description: Contains updated lead and (for won deals) may include commission and invoice.
+ *                   description: Contains the updated lead info.
  *             examples:
- *               won_non_rd:
- *                 summary: Won (commission + invoice generated)
+ *               won:
+ *                 summary: Won (parked for payment confirmation)
+ *                 value:
+ *                   message: "Outcome recorded. Once you have been paid by the customer, click the confirmation link to generate your invoice."
+ *                   result:
+ *                     status: "awaiting_partner_payment"
+ *                     won_date: "2026-05-11T09:00:00Z"
+ *               lost:
+ *                 summary: Lost / Not Suitable
  *                 value:
  *                   message: "Outcome recorded successfully"
- *                   data:
- *                     lead: { _id: "65f1234567890abcdef12345", outcome: "won", paymentStatus: "invoiced" }
- *                     commission: { _id: "65f1234567890abcdefaaaaa", commissionStatus: "unpaid", commissionValue: 500 }
- *                     invoice: { _id: "65f1234567890abcdefbbbbb", invoiceNumber: "INV-00001", status: "unpaid", pdfPath: "https://res.cloudinary.com/.../INV-00001.pdf" }
+ *                   result:
+ *                     status: "completed"
+ *                     outcome: "lost"
  *               won_rd:
  *                 summary: Won (R&D special-case, revenue reported later)
  *                 value:
@@ -361,9 +369,45 @@ router.post(
 );
 
 /**
- * POST /api/partner-response/:token/confirm-payment
- * Partner confirms they have received payment from the customer.
- * This triggers commission calculation and invoice generation.
+ * @openapi
+ * /api/partner-response/{token}/confirm-payment:
+ *   post:
+ *     summary: Confirm customer payment and generate invoice
+ *     description: >
+ *       Second step of the "won" flow. Partners use this endpoint after they have been paid by the customer.
+ *       Triggers commission calculation and generates/emails the final PDF invoice.
+ *     tags: [Partners]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *         description: The outcome token (preserved from the initial introduction).
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               partnerFee:
+ *                 type: number
+ *                 description: Optional override for the partner fee / project value. Defaults to the value provided during the "won" report.
+ *                 example: 5000
+ *     responses:
+ *       200:
+ *         description: Payment confirmed, invoice generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: "Payment confirmed. Your invoice has been generated and emailed." }
+ *                 invoice: { type: object, description: "The generated Invoice document" }
+ *                 commission: { type: object, description: "The generated Commission document" }
+ *       404:
+ *         description: Invalid token or lead not in correct status
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
  */
 router.post(
     '/:token/confirm-payment',

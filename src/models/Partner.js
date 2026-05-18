@@ -20,7 +20,7 @@ const partnerSchema = new mongoose.Schema({
     agreementTimestamp: { type: Date, default: null },
     business_name: { type: String, trim: true }, // Keeping for alias compatibility
     contact_name: { type: String, trim: true }, // Keeping for alias compatibility
-    office_postcode: { type: String, required: true, trim: true, uppercase: true },
+    office_postcode: { type: String, trim: true, uppercase: true },
     service_category: { 
         type: String, 
         enum: ['home_property', 'professional_advisory', 'business_services']
@@ -39,6 +39,15 @@ partnerSchema.pre('save', async function() {
     if (this.business_name && !this.companyName) this.companyName = this.business_name;
     if (this.contact_name && !this.contactName) this.contactName = this.contact_name;
     if (this.status === 'inactive') this.active = false;
+    
+    // Auto-populate office_postcode if not provided, using first covered postcode or fallback 'N/A'
+    if (!this.office_postcode) {
+        if (this.postcodes && this.postcodes.length > 0) {
+            this.office_postcode = this.postcodes[0].toUpperCase().trim();
+        } else {
+            this.office_postcode = 'N/A';
+        }
+    }
 });
 
 module.exports = mongoose.model('Partner', partnerSchema);

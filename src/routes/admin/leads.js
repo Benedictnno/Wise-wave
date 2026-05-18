@@ -289,7 +289,10 @@ router.patch('/:id/notes',
  * /admin/leads/{id}/outcome:
  *   patch:
  *     summary: Set outcome on a lead (admin override)
- *     description: Applies the same outcome processing as the partner secure link flow.
+ *     description: >
+ *       Applies the same outcome processing as the partner secure link flow.
+ *       For "won" deals, the lead is parked in "awaiting_partner_payment" status.
+ *       Admin must then confirm the payment (via /confirm-payment) or manually update status to move it to "partner_paid".
  *     tags: [Admin Leads]
  *     security:
  *       - bearerAuth: []
@@ -369,7 +372,9 @@ router.patch('/:id/outcome',
  *     parameters:
  *       - in: query
  *         name: status
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *           enum: [new, assigned, returned, reassigned, completed, manual_review, unassigned, awaiting_partner_payment, partner_paid]
  *       - in: query
  *         name: category
  *         schema: { type: string, description: "Category MongoDB id" }
