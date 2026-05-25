@@ -256,4 +256,12 @@ const initCronJobs = () => {
     console.log('[Cron] reporting, overdue reminders, regenerators, SLA, recovery and payment reminder jobs scheduled');
 };
 
-module.exports = { initCronJobs, generateMonthlyReport, sendOverdueInvoiceReminders, sendAwaitingPaymentReminders };
+module.exports = { 
+    initCronJobs, 
+    generateMonthlyReport, 
+    sendReportEmail,
+    sendOverdueInvoiceReminders, 
+    sendAwaitingPaymentReminders,
+    recoverPendingDeliveries,
+    monitorSLAExpiry
+};

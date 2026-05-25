@@ -25,6 +25,7 @@ const adminQualificationRoute = require('./routes/admin/qualification');
 const qualifyRoute = require('./routes/qualify');
 const subservicesRoute = require('./routes/subservices');
 const resendWebhookRoute = require('./routes/webhooks/resend');
+const cronWebhookRoute = require('./routes/webhooks/cron');
 const { swaggerUi, swaggerSpec, uiOptions } = require('./config/swagger');
 
 const app = express();
@@ -123,6 +124,7 @@ app.use('/api/categories', categoriesRoute);
 app.use('/api/introducers', introducersRoute);
 app.use('/api/qualify', qualifyRoute);
 app.use('/api/subservices', subservicesRoute);
+app.use('/api/cron', cronWebhookRoute);
 
 // ─── Admin Routes (all JWT-protected within their routers) ───────────────────
 app.use('/admin/auth', adminLimiter, adminAuthRoute);
