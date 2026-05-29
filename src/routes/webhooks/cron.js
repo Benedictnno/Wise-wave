@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const {
     generateMonthlyReport,
@@ -26,7 +27,31 @@ const verifyCronKey = (req, res, next) => {
     next();
 };
 
+// Ensure DB is connected before running any cron job (handles cold-start race)
+const requireDbReady = (req, res, next) => {
+    if (mongoose.connection.readyState !== 1) {
+        console.warn('[Cron] DB not ready (state:', mongoose.connection.readyState, '). Returning 503.');
+        return res.status(503).json({ 
+            error: 'Service starting up — database not yet connected. Retry in 30 seconds.',
+            retryAfter: 30
+        });
+    }
+    next();
+};
+
+// ─── Keep-Alive (no auth needed) ──────────────────────────────────────────────
+// External cron service should ping this every 14 minutes to prevent Render free tier sleep
+router.get('/keep-alive', (req, res) => {
+    const dbReady = mongoose.connection.readyState === 1;
+    res.status(dbReady ? 200 : 503).json({ 
+        status: dbReady ? 'awake' : 'starting',
+        db: dbReady ? 'connected' : 'connecting',
+        timestamp: new Date().toISOString()
+    });
+});
+
 router.use(verifyCronKey);
+router.use(requireDbReady);
 
 // 1. Monthly Report
 // e.g. POST /api/cron/monthly-report?secret=YOUR_SECRET
