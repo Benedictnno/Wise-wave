@@ -152,9 +152,12 @@ router.post(
 
 async function sendPartnerWelcome(partner) {
     const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) return;
+    if (!apiKey) {
+        console.warn('[Partner Welcome] RESEND_API_KEY not set — email skipped');
+        return;
+    }
 
-    await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -175,14 +178,24 @@ async function sendPartnerWelcome(partner) {
                 `WiseMove Connect`,
         }),
     });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[Partner Welcome] Resend API error (${response.status}):`, errorBody);
+    } else {
+        console.log(`[Partner Welcome] Email sent to ${partner.email}`);
+    }
 };
 
 async function notifyAdminNewPartner(partner) {
     const apiKey = process.env.RESEND_API_KEY;
     const adminEmail = process.env.ADMIN_EMAIL;
-    if (!apiKey || !adminEmail) return;
+    if (!apiKey || !adminEmail) {
+        console.warn('[Admin Notify] Missing RESEND_API_KEY or ADMIN_EMAIL — email skipped');
+        return;
+    }
 
-    await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -200,9 +213,16 @@ async function notifyAdminNewPartner(partner) {
                 `Phone: ${partner.phone}\n` +
                 `Preferred Contact: ${partner.preferredContactMethod}\n\n` +
                 `Please review their priority and postcode coverage in the admin dashboard.\n\n` +
-                `Admin Dashboard: ${process.env.ADMIN_URL || 'http://localhost:3000/admin'}`,
+                `Admin Dashboard: ${process.env.FRONTEND_URL || 'https://wisemoveconnect.com'}/admin`,
         }),
     });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[Admin Notify] Resend API error (${response.status}):`, errorBody);
+    } else {
+        console.log(`[Admin Notify] New partner notification sent to ${adminEmail}`);
+    }
 };
 
 const Lead = require('../models/Lead');
